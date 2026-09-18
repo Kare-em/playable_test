@@ -294,6 +294,25 @@
     });
   }
 
+  var TEXTURES = {};
+
+  function loadArt() {
+    var art = window.SHOP_ART || {};
+    var ids = Object.keys(art);
+    if (!ids.length) return Promise.resolve();
+    return Promise.all(ids.map(function (id) {
+      return new Promise(function (resolve) {
+        var img = new Image();
+        img.onload = function () {
+          try { TEXTURES[id] = PIXI.Texture.from(img); } catch (e) {}
+          resolve();
+        };
+        img.onerror = function () { resolve(); };   // нет картинки — останется эмодзи
+        img.src = art[id];
+      });
+    }));
+  }
+
   function glyphText(ch, size) {
     return new PIXI.Text({
       text: ch,
@@ -415,10 +434,20 @@
      .roundRect(0, 0, w, h, 14).stroke({ width: opts.selected ? 5 : 2, color: opts.selected ? 0xE0A21B : 0xB9A483 });
     c.addChild(g);
 
-    var gl = glyphText(product.glyph, Math.round(h * 0.40));
-    gl.anchor.set(0.5);
-    gl.x = w / 2; gl.y = h * 0.40;
-    c.addChild(gl);
+    var art = TEXTURES[product.id];
+    if (art) {
+      var sp = new PIXI.Sprite(art);
+      var side = Math.round(h * 0.62);
+      sp.width = side; sp.height = side;
+      sp.anchor.set(0.5);
+      sp.x = w / 2; sp.y = h * 0.40;
+      c.addChild(sp);
+    } else {
+      var gl = glyphText(product.glyph, Math.round(h * 0.40));
+      gl.anchor.set(0.5);
+      gl.x = w / 2; gl.y = h * 0.40;
+      c.addChild(gl);
+    }
 
     var nm = label(product.name, Math.max(13, Math.round(h * 0.125)), 0x4A3B2A, '600');
     nm.anchor.set(0.5);
@@ -670,8 +699,8 @@
 
       startShift(0);
       buildStatic();
-      render();
       fit();
+      loadArt().then(render);
       window.addEventListener('resize', fit);
 
       app.ticker.add(function (ticker) {
