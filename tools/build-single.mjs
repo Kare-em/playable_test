@@ -8,8 +8,9 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 const root = new URL('../', import.meta.url);
 const read = (p) => readFile(new URL(p, root), 'utf8');
 
-const [pixi, art, game] = await Promise.all([
+const [pixi, audio, art, game] = await Promise.all([
   read('prototype/vendor/pixi.min.js'),
+  read('prototype/src/audio.js'),
   read('prototype/src/art.js'),
   read('prototype/src/game.js')
 ]);
@@ -38,6 +39,7 @@ const html = `<!DOCTYPE html>
 <body>
 <div id="boot">Загрузка…</div>
 <script>${safe(pixi)}</script>
+<script>${safe(audio)}</script>
 <script>${safe(art)}</script>
 <script>${safe(game)}</script>
 </body>
@@ -61,6 +63,7 @@ const page = `<title>Магазин у дома</title>
 </style>
 <div id="boot">Загрузка…</div>
 <script>${safe(pixi)}</script>
+<script>${safe(audio)}</script>
 <script>${safe(art)}</script>
 <script>${safe(game)}</script>
 `;
