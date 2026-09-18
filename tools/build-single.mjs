@@ -47,3 +47,22 @@ const html = `<!DOCTYPE html>
 await mkdir(new URL('dist/', root), { recursive: true });
 await writeFile(new URL('dist/shop-sort-test.html', root), html);
 console.log('dist/shop-sort-test.html:', (Buffer.byteLength(html) / 1024).toFixed(0), 'КБ');
+
+// Вариант для публикации ссылкой: хост сам оборачивает файл в html/head/body
+const page = `<title>Магазин у дома</title>
+<style>
+  :root{ --ground:#2B2118; --boot:#E8D9C3; }
+  html,body{height:100%;margin:0;padding:0;background:var(--ground);overflow:hidden;
+    display:flex;align-items:center;justify-content:center;
+    -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+  canvas{display:block}
+  #boot{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--boot);font:16px/1.4 -apple-system,Segoe UI,Roboto,sans-serif}
+</style>
+<div id="boot">Загрузка…</div>
+<script>${safe(pixi)}</script>
+<script>${safe(art)}</script>
+<script>${safe(game)}</script>
+`;
+await writeFile(new URL('dist/artifact-shop-sort.html', root), page);
+console.log('dist/artifact-shop-sort.html:', (Buffer.byteLength(page) / 1024).toFixed(0), 'КБ');
