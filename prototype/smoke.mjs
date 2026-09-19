@@ -26,7 +26,7 @@ const start = await page.evaluate(() => {
            customers: st.customers.length, status: st.status };
 });
 console.log('shift1', JSON.stringify(start));
-if (start.tray !== 12 || start.customers !== 3) fail('прилавок или очередь собраны неверно');
+if (start.tray !== 8 || start.customers !== 3) fail('стартовый прилавок должен быть на два отдела');
 
 // 2. три одинаковых в своей зоне: продажа, бонус зоны, комбо
 const triple = await page.evaluate(() => {

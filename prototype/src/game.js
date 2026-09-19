@@ -34,8 +34,11 @@
   ];
 
   // Зоны, которые сейчас работают: мясной прилавок появляется после покупки.
+  // Магазин начинается с двух отделов, остальные докупаются — и каждый
+  // следующий дороже предыдущего.
   function activeZones() {
     return ZONES.filter(function (z) {
+      if (z.id === 'produce') return meta.up.produce > 0;
       if (z.id === 'meat') return meta.up.meat > 0;
       if (z.id === 'chem') return meta.up.chem > 0;
       return true;
@@ -47,20 +50,28 @@
     { id: 'cheese', name: 'Сыр',      glyph: '🧀', section: 'dairy',   price: 55, color: 0xFFE7AE, accent: 0xFFC21C },
     { id: 'yogurt', name: 'Йогурт',   glyph: '🍶', section: 'dairy',   price: 35, color: 0xD7E4F5, accent: 0xF19DC4 },
     { id: 'butter', name: 'Масло',    glyph: '🧈', section: 'dairy',   price: 60, color: 0xFDECBA, accent: 0xFFDC64 },
+    { id: 'curd',   name: 'Творог',   glyph: '🥣', section: 'dairy',   price: 55, color: 0xF7F1E4, accent: 0x4FA8DC },
+    { id: 'sourcream', name: 'Сметана', glyph: '🥛', section: 'dairy', price: 50, color: 0xF3F6F8, accent: 0x37A778 },
     { id: 'bread',  name: 'Хлеб',     glyph: '🍞', section: 'grocery', price: 30, color: 0xFDDCA4, accent: 0xFF9F32 },
     { id: 'grain',  name: 'Крупа',    glyph: '🍚', section: 'grocery', price: 45, color: 0xF2E4CA, accent: 0xE5C776 },
     { id: 'cookie', name: 'Печенье',  glyph: '🍪', section: 'grocery', price: 50, color: 0xF7D3A2, accent: 0xE58227 },
     { id: 'can',    name: 'Консервы', glyph: '🥫', section: 'grocery', price: 65, color: 0xF3C6B8, accent: 0xF16C4C },
+    { id: 'pasta',  name: 'Макароны', glyph: '🍝', section: 'grocery', price: 40, color: 0xFFE9B8, accent: 0xE0A82E },
+    { id: 'tea',    name: 'Чай',      glyph: '🍵', section: 'grocery', price: 70, color: 0xF2C0C6, accent: 0xC7455C },
     { id: 'apple',  name: 'Яблоко',   glyph: '🍎', section: 'produce', price: 35, color: 0xFBC2BF, accent: 0xFF675B },
     { id: 'carrot', name: 'Морковь',  glyph: '🥕', section: 'produce', price: 25, color: 0xFFD7AF, accent: 0xFF9B36 },
     { id: 'tomato', name: 'Помидор',  glyph: '🍅', section: 'produce', price: 40, color: 0xFFC2B5, accent: 0xFF4D3C },
     { id: 'grape',  name: 'Виноград', glyph: '🍇', section: 'produce', price: 70, color: 0xDCC9F3, accent: 0xAA78E2 },
+    { id: 'banana', name: 'Банан',    glyph: '🍌', section: 'produce', price: 45, color: 0xFFF0A8, accent: 0xE8B81C },
+    { id: 'cucumber', name: 'Огурец', glyph: '🥒', section: 'produce', price: 30, color: 0xDAF0C4, accent: 0x4E9B35 },
     { id: 'sausage',name: 'Колбаса',  glyph: '🌭', section: 'meat',    price: 80, color: 0xF3C7BE, accent: 0xC0503C },
     { id: 'chicken',name: 'Курица',   glyph: '🍗', section: 'meat',    price: 90, color: 0xF7DCB4, accent: 0xD9963C },
     { id: 'steak',  name: 'Стейк',    glyph: '🥩', section: 'meat',    price: 110, color: 0xF0BDB2, accent: 0xAE362A },
+    { id: 'wieners',name: 'Сосиски',  glyph: '🌭', section: 'meat',    price: 70, color: 0xF3C8BC, accent: 0xD96A50 },
     { id: 'soap',   name: 'Мыло',     glyph: '🧼', section: 'chem',    price: 60, color: 0xFCEFC4, accent: 0xE0B23A },
     { id: 'powder', name: 'Порошок',  glyph: '🧴', section: 'chem',    price: 95, color: 0xCFE6F7, accent: 0x3E8FC6 },
-    { id: 'spray',  name: 'Спрей',    glyph: '🧽', section: 'chem',    price: 85, color: 0xD3F0E1, accent: 0x36A57C }
+    { id: 'spray',  name: 'Спрей',    glyph: '🧽', section: 'chem',    price: 85, color: 0xD3F0E1, accent: 0x36A57C },
+    { id: 'sponge', name: 'Губка',    glyph: '🧴', section: 'chem',    price: 35, color: 0xFFE98F, accent: 0x3FAE86 }
   ];
 
   // План смены — обслуженные покупатели, а не просто проданные тройки.
@@ -71,9 +82,9 @@
   // просрочку. Раньше завоз был вдвое больше спроса, и лишнее просто портилось.
   var SPARE = 6;               // запас сверх плана и полки, в штуках
   var SHIFTS = [
-    { types: 6,  crates: 30, goal: 5, patience: 12, visible: 5, lives: 4, sale: false },
-    { types: 9,  crates: 36, goal: 7, patience: 13, visible: 6, lives: 3, sale: false },
-    { types: 10, crates: 39, goal: 9, patience: 13, visible: 6, lives: 3, sale: true  }
+    { types: 6,  crates: 30, goal: 6, patience: 11, visible: 5, lives: 4, sale: false },
+    { types: 8,  crates: 36, goal: 8, patience: 12, visible: 6, lives: 3, sale: false },
+    { types: 10, crates: 39, goal: 11, patience: 12, visible: 6, lives: 3, sale: true  }
   ];
 
   var QUEUE_SIZE = 3;
@@ -91,14 +102,14 @@
   /* ------------------------------------------------------------- палитра */
 
   var C = {
-    wallTop: 0xFFF4E4, wallBot: 0xEFD9BB, floor: 0xB9793F,
-    steel: 0xB9A48C, steelDark: 0x7A6448, steelLight: 0xDFCFB6, shelf: 0xF8EDDB,
-    ink: 0x2A1E16, inkSoft: 0x6E5B47,
-    panel: 0xFFFBF2, gold: 0xF2A21B,
-    green: 0x27A34A, red: 0xE0402E,
-    sign: 0x9E3325, signAlt: 0xFFE9C4,
-    hudBg: 0x241A14, hudInk: 0xF6ECDC, hudInkSoft: 0xB09A82, hudTrack: 0x3B2A20,
-    cardboard: 0xC98D4E, cardboardLight: 0xE6B87A, chill: 0xE2F0F8
+    wallTop: 0xFFF6E7, wallBot: 0xF2DDBD, floor: 0xB9793F,
+    steel: 0xD9B276, steelDark: 0x7A5330, steelLight: 0xF7E3C2, shelf: 0xFFF3DE,
+    ink: 0x4A3320, inkSoft: 0x8A6E4E,
+    panel: 0xFFFBF1, gold: 0xF5B324,
+    green: 0x57B84A, red: 0xE0563E,
+    sign: 0xC9452F, signAlt: 0xFFF0C8,
+    hudBg: 0x3A2717, hudInk: 0xFFF3DC, hudInkSoft: 0xC9A87E, hudTrack: 0x54381F,
+    cardboard: 0xD1904F, cardboardLight: 0xEFC188, chill: 0xE6F3FA
   };
 
   /* -------------------------------------------------------------- утилиты */
@@ -142,10 +153,13 @@
     { id: 'cash',    name: 'Касса', max: 2, prices: [1800, 4000],
       effect: function (l) { return '+' + l + ' заряд бустерам'; },
       hint: 'Чаще пользуйтесь бустерами смены' },
-    { id: 'meat',    name: 'Мясной прилавок', max: 1, prices: [3000],
+    { id: 'produce', name: 'Овощной прилавок', max: 1, prices: [6500],
+      effect: function () { return 'открыт отдел овощей'; },
+      hint: 'Первый новый отдел: дешёвый товар, короткий срок' },
+    { id: 'meat',    name: 'Мясной прилавок', max: 1, prices: [13000],
       effect: function () { return 'открыт отдел мяса'; },
       hint: 'Дорогой товар, но портится быстрее всех' },
-    { id: 'chem',    name: 'Отдел химии', max: 1, prices: [4200],
+    { id: 'chem',    name: 'Отдел химии', max: 1, prices: [24000],
       effect: function () { return 'открыт отдел бытовой химии'; },
       hint: 'Дорогой товар, который почти не портится' },
     { id: 'ads',     name: 'Реклама', max: 2, prices: [1600, 3600],
@@ -162,7 +176,8 @@
 
   function defaultMeta() {
     return { build: BUILD, wallet: 0, shiftIdx: 0, streak: 0, total: 0,
-             up: { counter: 0, fridge: 0, cart: 0, cash: 0, meat: 0, chem: 0, ads: 0, sign: 0 } };
+             up: { counter: 0, fridge: 0, cart: 0, cash: 0,
+                   produce: 0, meat: 0, chem: 0, ads: 0, sign: 0 } };
   }
 
   function loadMeta() {
@@ -463,12 +478,12 @@
 
   function shiftConfig(idx) {
     if (idx < SHIFTS.length) return SHIFTS[idx];
-    var goal = 7 + (idx - 2);
+    var goal = 11 + (idx - 2);
     return {
-      types: 12,
+      types: 14,
       crates: goal * 3 + 12 + SPARE,         // план + полка + запас на просрочку
       goal: goal,
-      patience: Math.max(10, 14 - Math.floor((idx - 2) / 3)),
+      patience: Math.max(10, 13 - Math.floor((idx - 2) / 3)),
       visible: 6,
       lives: 3,
       sale: true
@@ -488,11 +503,16 @@
   // Товар ложится только в свою зону, поэтому набор смены берётся из секций
   // поровну: иначе одна зона забивается, а другая простаивает всю смену.
   function poolFor(types) {
-    var pool = [];
-    var zs = activeZones();
+    var zs = activeZones(), pool = [];
+    var byZone = zs.map(function (z) {
+      return PRODUCTS.filter(function (p) { return p.section === z.id; });
+    });
+    var total = 0;
+    byZone.forEach(function (list) { total += list.length; });
+    types = Math.min(types, total);                 // ассортимент ограничен открытыми отделами
     zs.forEach(function (z, i) {
-      var n = Math.floor(types / zs.length) + (i < types % zs.length ? 1 : 0);
-      pool = pool.concat(PRODUCTS.filter(function (p) { return p.section === z.id; }).slice(0, n));
+      var n = Math.min(byZone[i].length, Math.floor(types / zs.length) + (i < types % zs.length ? 1 : 0));
+      pool = pool.concat(byZone[i].slice(0, n));
     });
     return pool;
   }
@@ -1069,11 +1089,13 @@
   // раскладывается в два ряда по два, а ячейки становятся чуть ниже.
   function trayRows() { return activeZones().length > 3 ? 2 : 1; }
   function zonesPerRow() { return Math.ceil(activeZones().length / trayRows()); }
-  function trayH() { return trayRows() > 1 ? 76 : TRAY_H; }
+  // Стеллаж занимает одну и ту же высоту при любом числе отделов: с одним
+  // рядом ячейки просто выше, и зал не разрывает пустотой.
+  function trayH() { return trayRows() > 1 ? 76 : 148; }
   function trayPanelY() { return TRAY_PANEL_Y; }
   function trayRowH() { return trayH() + 42; }
-  function trayPanelH() { return 44 + trayRows() * trayRowH() + 8; }
-  function trayTop() { return trayPanelY() + 78; }
+  function trayPanelH() { return 288; }
+  function trayTop() { return trayPanelY() + (trayRows() > 1 ? 78 : 104); }
   function trayRowY(row) { return trayTop() + row * trayRowH(); }
 
   function slotPos(i) {
@@ -1271,17 +1293,20 @@
   function button(x, y, w, h, text, sub, enabled, onTap) {
     var c = new PIXI.Container();
     var g = new PIXI.Graphics();
-    g.roundRect(3, 5, w, h, 16).fill({ color: 0x0F1A22, alpha: enabled ? 0.18 : 0.06 });
-    g.roundRect(0, 0, w, h, 16).fill(enabled ? C.panel : 0xDDE4E9);
-    g.roundRect(2, 2, w - 4, h * 0.42, 14).fill({ color: 0xFFFFFF, alpha: enabled ? 0.85 : 0.3 });
-    g.roundRect(0, 0, w, h, 16).stroke({ width: 4, color: enabled ? C.steelDark : C.steel });
+    var base = enabled ? 0x5FBF46 : 0xCFC4B2, lightTop = enabled ? 0x8FDC6A : 0xE2D9C9;
+    g.roundRect(2, 6, w, h, 18).fill({ color: 0x3A2717, alpha: enabled ? 0.32 : 0.12 });
+    g.roundRect(0, 0, w, h, 18).fill(base);
+    g.roundRect(5, 5, w - 10, h * 0.46, 13).fill({ color: lightTop, alpha: 0.95 });
+    g.roundRect(9, 8, w - 18, h * 0.24, 9).fill({ color: 0xFFFFFF, alpha: enabled ? 0.45 : 0.2 });
+    g.roundRect(0, 0, w, h, 18).stroke({ width: 5, color: 0xFFFFFF, alpha: enabled ? 0.92 : 0.5 });
+    g.roundRect(-2, -2, w + 4, h + 4, 20).stroke({ width: 3.5, color: enabled ? 0x3F6E2F : 0x9A907E });
     c.addChild(g);
 
-    var t = label(text, 22, enabled ? C.ink : 0x94A2AB, '800');
+    var t = label(text, 22, enabled ? 0xFFFFFF : 0x8C8375, '800');
     t.anchor.set(0.5); t.x = w / 2; t.y = h / 2 - (sub ? 13 : 0);
     c.addChild(t);
     if (sub) {
-      var s = label(sub, 15, enabled ? C.inkSoft : 0x94A2AB, '600');
+      var s = label(sub, 14, enabled ? 0xEAFBE2 : 0x8C8375, '700');
       s.anchor.set(0.5); s.x = w / 2; s.y = h / 2 + 17;
       c.addChild(s);
     }
@@ -1328,8 +1353,8 @@
   function personGraphic(r, idx, mood) {
     var p = personById(idx);
     var kid = p.age === 'kid', old = p.age === 'old';
-    var k = r * (kid ? 0.95 : 1);
-    var lw = Math.max(2.2, k * 0.115);
+    var k = r * (kid ? 0.98 : 1);
+    var lw = Math.max(2, k * 0.095);          // контур мягче и тоньше
     var ink = C.ink;
     var shade = mix(p.skin, ink, 0.22);
     var deep = mix(p.skin, ink, 0.4);
@@ -1343,8 +1368,8 @@
     var head = new PIXI.Graphics(), top = new PIXI.Graphics();
     c.addChild(back, body, head, top);
 
-    var faceRx = kid ? 1.02 : (p.id === 'worker' ? 1.05 : 1);
-    var faceRy = kid ? 1.0 : (old ? 1.12 : 1.08);
+    var faceRx = kid ? 1.06 : (p.id === 'worker' ? 1.08 : 1.03);
+    var faceRy = kid ? 1.04 : (old ? 1.14 : 1.1);
 
     /* ---- волосы за головой --------------------------------------------- */
     if (p.style === 'waves') {
@@ -1372,9 +1397,9 @@
     }
 
     /* ---- плечи, воротник, шея ------------------------------------------ */
-    body.roundRect(-k * 1.32, k * 0.95, k * 2.64, k * 1.05, k * 0.36).fill(p.cloth);
-    body.roundRect(-k * 1.32, k * 0.95, k * 2.64, k * 1.05, k * 0.36).stroke({ width: lw, color: ink });
-    body.roundRect(-k * 1.32, k * 0.95, k * 1.05, k * 1.05, k * 0.36).fill({ color: clothLight, alpha: 0.32 });
+    body.roundRect(-k * 1.14, k * 1.02, k * 2.28, k * 1.0, k * 0.4).fill(p.cloth);
+    body.roundRect(-k * 1.14, k * 1.02, k * 2.28, k * 1.0, k * 0.4).stroke({ width: lw, color: ink });
+    body.roundRect(-k * 1.14, k * 1.02, k * 0.9, k * 1.0, k * 0.4).fill({ color: clothLight, alpha: 0.32 });
     body.rect(-k * 0.3, k * 0.6, k * 0.6, k * 0.5).fill(p.skin);
     body.ellipse(0, k * 0.74, k * 0.35, k * 0.2).fill({ color: deep, alpha: 0.6 });
 
@@ -1412,6 +1437,7 @@
     head.ellipse(0, 0, k * faceRx, k * faceRy).fill(p.skin);
     head.ellipse(k * 0.44, k * 0.06, k * 0.6, k * faceRy * 0.88).fill({ color: shade, alpha: 0.18 });
     head.ellipse(0, k * faceRy * 0.62, k * 0.42, k * 0.3).fill({ color: shade, alpha: 0.12 });
+    head.ellipse(-k * 0.34, -k * 0.42, k * 0.42, k * 0.26).fill({ color: 0xFFFFFF, alpha: 0.22 });
     head.ellipse(0, 0, k * faceRx, k * faceRy).stroke({ width: lw, color: ink });
     [-1, 1].forEach(function (s) {
       head.circle(s * k * 0.99, k * 0.1, k * 0.18).fill(p.skin);
@@ -1470,7 +1496,7 @@
     }
 
     /* ---- глаза ---------------------------------------------------------- */
-    var eyeY = k * 0.04, eyeX = k * 0.37, eyeR = k * (kid ? 0.25 : 0.21);
+    var eyeY = k * 0.06, eyeX = k * 0.36, eyeR = k * (kid ? 0.3 : 0.26);
     if (!p.shades) {
       [-1, 1].forEach(function (s) {
         top.ellipse(s * eyeX, eyeY, eyeR * 0.8, eyeR * 0.94).fill(0xFFFFFF);
@@ -1652,8 +1678,9 @@
 
   function buildHud() {
     var g = new PIXI.Graphics();
-    vGradient(g, 0, 0, W, HUD_H, 0x21303E, C.hudBg, 12);
-    g.roundRect(14, 8, W - 28, 44, 12).fill({ color: 0xFFFFFF, alpha: 0.05 });
+    vGradient(g, 0, 0, W, HUD_H, 0x53381F, C.hudBg, 12);
+    g.roundRect(12, 8, W - 24, 42, 14).fill({ color: 0xFFFFFF, alpha: 0.06 });
+    g.rect(0, HUD_H - 9, W, 4).fill(C.gold);
     g.rect(0, HUD_H - 5, W, 5).fill(C.steelDark);
     g.rect(0, HUD_H - 5, W, 2).fill({ color: 0xFFFFFF, alpha: 0.12 });
     root.addChild(g);
@@ -1737,8 +1764,9 @@
     g.rect(x + w - 145, y - 14, 5, 14).fill(C.steelDark);
     g.roundRect(x + 4, y + 5, w, h, 8).fill({ color: 0x4A1109, alpha: 0.25 });
     g.roundRect(x, y, w, h, 12).fill(C.sign);
-    g.roundRect(x, y, w, h, 12).stroke({ width: 4, color: 0x6B1E14 });
-    g.roundRect(x + 8, y + 4, w - 16, 6, 3).fill({ color: 0xFFFFFF, alpha: 0.2 });
+    g.roundRect(x, y, w, h, 14).stroke({ width: 5, color: 0x7E2517 });
+    g.roundRect(x + 5, y + 5, w - 10, h - 10, 10).stroke({ width: 3, color: C.gold, alpha: 0.9 });
+    g.roundRect(x + 10, y + 6, w - 20, 7, 4).fill({ color: 0xFFFFFF, alpha: 0.28 });
     signNode = new PIXI.Container();
     signNode.addChild(g);
 
@@ -1764,8 +1792,9 @@
       g.roundRect(PANEL_X - 2, trayRowY(1) - 16, PANEL_W + 4, 10, 6).fill({ color: 0x8A5A29, alpha: 0.14 });
     }
     g.roundRect(PANEL_X - 2, py + 6, PANEL_W + 4, 32, 10).fill(C.steelDark);
-    g.roundRect(PANEL_X - 10, py, PANEL_W + 20, ph, 14).stroke({ width: 5, color: C.steelDark });
-    g.rect(PANEL_X - 10, py + 4, PANEL_W + 20, 3).fill({ color: 0xFFFFFF, alpha: 0.35 });
+    g.roundRect(PANEL_X - 10, py, PANEL_W + 20, ph, 18).stroke({ width: 6, color: C.steelDark });
+    g.roundRect(PANEL_X - 5, py + 5, PANEL_W + 10, ph - 10, 14).stroke({ width: 3, color: C.gold, alpha: 0.75 });
+    g.rect(PANEL_X - 10, py + 4, PANEL_W + 20, 3).fill({ color: 0xFFFFFF, alpha: 0.4 });
     layers.trayStatic.addChild(g);
 
     var cap = label('КАЖДЫЙ ТОВАР В СВОЙ ОТДЕЛ · ТРИ ОДИНАКОВЫХ = ПРОДАЖА', 15, 0xE7EFF5, '800');
@@ -2106,10 +2135,11 @@
       box.x = queueX(); box.y = queueY(i);
 
       var g = new PIXI.Graphics();
-      g.roundRect(3, 5, qw, qh, 14).fill({ color: 0x0F1A22, alpha: 0.16 });
-      g.roundRect(0, 0, qw, qh, 14).fill(c ? C.panel : 0xE4EAEF);
-      g.roundRect(0, 0, qw, qh, 14).stroke({ width: 4, color: c ? C.steelDark : C.steel });
-      g.rect(0, 0, 8, qh).fill({ color: c ? C.sign : C.steel, alpha: c ? 0.9 : 0.5 });
+      g.roundRect(3, 6, qw, qh, 20).fill({ color: 0x3A2717, alpha: 0.22 });
+      g.roundRect(0, 0, qw, qh, 20).fill(c ? C.panel : 0xEDE2CE);
+      g.roundRect(4, 4, qw - 8, qh - 8, 16).stroke({ width: 3, color: 0xFFFFFF, alpha: 0.9 });
+      g.roundRect(0, 0, qw, qh, 20).stroke({ width: 4, color: c ? C.steelDark : C.steel });
+      g.roundRect(0, 0, 10, qh, 20).fill({ color: c ? C.sign : C.steel, alpha: c ? 0.95 : 0.5 });
       box.addChild(g);
 
       if (!c) {
@@ -2555,6 +2585,13 @@
       g.roundRect(s * 0.36, s * 0.46, s * 0.28, s * 0.2, 4).fill(0xFFFFFF);
       g.circle(s * 0.74, s * 0.2, s * 0.05).fill(0x9FE3C6);
       g.circle(s * 0.84, s * 0.3, s * 0.035).fill(0x9FE3C6);
+    } else if (id === 'produce') {
+      g.circle(s * 0.42, s * 0.6, s * 0.22).fill(0xD94436);
+      g.circle(s * 0.42, s * 0.6, s * 0.22).stroke({ width: 4, color: C.ink });
+      g.moveTo(s * 0.42, s * 0.38).quadraticCurveTo(s * 0.5, s * 0.22, s * 0.66, s * 0.24)
+       .quadraticCurveTo(s * 0.56, s * 0.4, s * 0.42, s * 0.38).fill(0x4E9B43);
+      g.ellipse(s * 0.7, s * 0.66, s * 0.16, s * 0.1).fill(0xE8A030);
+      g.ellipse(s * 0.7, s * 0.66, s * 0.16, s * 0.1).stroke({ width: 3.5, color: C.ink });
     } else if (id === 'meat') {
       g.ellipse(s * 0.5, s * 0.52, s * 0.34, s * 0.26).fill(0xB0372A);
       g.ellipse(s * 0.5, s * 0.52, s * 0.34, s * 0.26).stroke({ width: 4, color: C.ink });
@@ -2590,7 +2627,7 @@
     dim.rect(0, 0, W, H).fill({ color: 0x0E1820, alpha: 0.74 });
     overlay.addChild(dim);
 
-    var pw = 980, ph = 612, px = (W - pw) / 2, py = (H - ph) / 2;
+    var pw = 1020, ph = 616, px = (W - pw) / 2, py = (H - ph) / 2;
     var panel = new PIXI.Graphics();
     panel.roundRect(px + 6, py + 8, pw, ph, 18).fill({ color: 0x000000, alpha: 0.3 });
     panel.roundRect(px, py, pw, ph, 18).fill(C.panel);
@@ -2607,56 +2644,55 @@
     wallet.anchor.set(1, 0.5); wallet.x = px + pw - 24; wallet.y = py + 34;
     overlay.addChild(wallet);
 
-    // в горизонте апгрейды ложатся в две колонки
-    var cols = 2, cw = (pw - 24 * (cols + 1)) / cols, ch = 108, gap = 12;
+    // апгрейдов стало девять — раскладываем в три колонки
+    var cols = 3, cw = (pw - 20 * (cols + 1)) / cols, ch = 126, gap = 12;
     UPGRADES.forEach(function (u, i) {
       var col = i % cols, row = Math.floor(i / cols);
-      var x = px + 24 + col * (cw + 24), y = py + 84 + row * (ch + gap);
+      var x = px + 20 + col * (cw + 20), y = py + 84 + row * (ch + gap);
       var lvl = meta.up[u.id], price = upgradePrice(u);
 
       var card = new PIXI.Graphics();
-      card.roundRect(x, y, cw, ch, 10).fill(row % 2 ? 0xF1F5F8 : 0xFFFFFF);
-      card.roundRect(x, y, cw, ch, 10).stroke({ width: 3, color: C.steel });
+      card.roundRect(x, y, cw, ch, 14).fill(row % 2 ? 0xFDF4E4 : 0xFFFFFF);
+      card.roundRect(x, y, cw, ch, 14).stroke({ width: 3, color: C.steel });
       overlay.addChild(card);
 
       var disc = new PIXI.Graphics();
-      disc.circle(x + 52, y + ch / 2, 32).fill(0xEDF2F5);
-      disc.circle(x + 52, y + ch / 2, 32).stroke({ width: 3, color: C.ink, alpha: 0.5 });
+      disc.circle(x + 44, y + 42, 28).fill(0xF6EAD6);
+      disc.circle(x + 44, y + 42, 28).stroke({ width: 3, color: C.ink, alpha: 0.45 });
       overlay.addChild(disc);
-      var icon = upgradeIcon(u.id, 52);
-      icon.x = x + 26; icon.y = y + ch / 2 - 26;
+      var icon = upgradeIcon(u.id, 46);
+      icon.x = x + 21; icon.y = y + 19;
       overlay.addChild(icon);
 
-      var name = label(u.name, 20, C.ink, '800');
-      name.x = x + 96; name.y = y + 14;
+      var name = label(u.name, 17, C.ink, '800');
+      name.x = x + 80; name.y = y + 16;
       overlay.addChild(name);
 
-      var eff = labelWrap(lvl > 0 ? u.effect(lvl) : u.hint, 14,
-        lvl > 0 ? C.green : C.inkSoft, '600', cw - 250);
-      eff.x = x + 96; eff.y = y + 40;
+      var eff = labelWrap(lvl > 0 ? u.effect(lvl) : u.hint, 12,
+        lvl > 0 ? C.green : C.inkSoft, '600', cw - 92);
+      eff.x = x + 80; eff.y = y + 40;
       overlay.addChild(eff);
 
       for (var k = 0; k < u.max; k++) {
         var pip = new PIXI.Graphics();
-        pip.circle(x + 102 + k * 20, y + ch - 22, 7).fill(k < lvl ? C.gold : 0xD7DFE5);
-        pip.circle(x + 102 + k * 20, y + ch - 22, 7).stroke({ width: 2, color: C.ink, alpha: 0.45 });
+        pip.circle(x + 20 + k * 18, y + ch - 18, 6).fill(k < lvl ? C.gold : 0xE0D6C4);
+        pip.circle(x + 20 + k * 18, y + ch - 18, 6).stroke({ width: 2, color: C.ink, alpha: 0.4 });
         overlay.addChild(pip);
       }
 
       if (price == null) {
-        var maxed = label('Максимум', 17, C.green, '800');
-        maxed.anchor.set(1, 0.5); maxed.x = x + cw - 24; maxed.y = y + ch / 2;
+        var maxed = label('Максимум', 15, C.green, '800');
+        maxed.anchor.set(1, 0.5); maxed.x = x + cw - 18; maxed.y = y + ch - 22;
         overlay.addChild(maxed);
       } else {
         var can = meta.wallet >= price;
-        overlay.addChild(button(x + cw - 150, y + 20, 130, ch - 40, money(price),
-          can ? 'купить' : 'мало денег', can,
-          function (id) { return function () { buyUpgrade(id); }; }(u.id)));
+        overlay.addChild(button(x + cw - 132, y + ch - 46, 116, 40, money(price),
+          null, can, function (id) { return function () { buyUpgrade(id); }; }(u.id)));
       }
     });
 
     var next = meta.shiftIdx;
-    overlay.addChild(button(px + pw / 2 - 190, py + ph - 76, 380, 60,
+    overlay.addChild(button(px + pw / 2 - 190, py + ph - 78, 380, 58,
       'Открыть смену ' + (next + 1), null, true, function () {
         hideOverlay();
         startShift(next);
