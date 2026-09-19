@@ -507,7 +507,7 @@
 
   var HUD_H = 150, AWNING_Y = 150, AWNING_H = 58;
   var QUEUE_Y = 236, QUEUE_W = 208, QUEUE_H = 208, QUEUE_GAP = 24, QUEUE_X0 = 24;
-  var TRAY_PANEL_Y = 486, TRAY_Y = 576, TRAY_H = 132, TRAY_GAP = 6, ZONE_GAP = 16;
+  var TRAY_PANEL_Y = 486, TRAY_Y = 578, TRAY_H = 88, TRAY_GAP = 6, ZONE_GAP = 16;
   var BELT_PANEL_Y = 790, BELT_Y = 832, BELT_H = 138, BELT_GAP = 10;
   var FRIDGE_Y = 1006, FRIDGE_SLOT_W = 108, FRIDGE_SLOT_H = 84;
   var BTN_Y = 1124, BTN_W = 200, BTN_H = 90, BTN_GAP = 20, BTN_X0 = 40;
@@ -623,57 +623,54 @@
     return gl;
   }
 
-  function card(product, w, h, opts) {
+  // Товар рисуется как сам продукт: никакой карточки-рамки, только предмет,
+  // его тень и, на завозе, ценник.
+  function productPiece(product, w, h, opts) {
     opts = opts || {};
     var wrap = new PIXI.Container();
     var c = new PIXI.Container();
     wrap.addChild(c);
 
-    var r = Math.min(22, h * 0.2);
+    // область нажатия во весь слот — по маленькой картинке попадать неудобно
+    var hit = new PIXI.Graphics();
+    hit.roundRect(0, 0, w, h, 14).fill({ color: 0xFFFFFF, alpha: 0.001 });
+    c.addChild(hit);
+
+    if (opts.selected) {
+      var halo = new PIXI.Graphics();
+      halo.circle(w / 2, h * 0.44, Math.min(w, h) * 0.52).fill({ color: C.gold, alpha: 0.25 });
+      halo.circle(w / 2, h * 0.44, Math.min(w, h) * 0.52).stroke({ width: 4, color: C.gold });
+      c.addChild(halo);
+    }
 
     var shadow = new PIXI.Graphics();
-    shadow.roundRect(4, 8, w, h, r).fill({ color: 0x4A3B2A, alpha: 0.2 });
+    shadow.ellipse(w / 2, h * (opts.price ? 0.68 : 0.88), w * 0.3, h * 0.06)
+          .fill({ color: 0x4A3B2A, alpha: 0.22 });
     c.addChild(shadow);
 
-    var body = new PIXI.Graphics();
-    body.roundRect(0, 0, w, h, r).fill(0xFFFDF8);
-    body.roundRect(3, 3, w - 6, h * 0.42, r - 4).fill({ color: product.accent, alpha: 0.38 });
-    body.roundRect(0, 0, w, h, r).stroke({ width: opts.selected ? 6 : 4,
-      color: opts.selected ? C.gold : C.ink, alpha: opts.selected ? 1 : 0.85 });
-    c.addChild(body);
-
-    var iconY = opts.price ? h * 0.36 : h * 0.40;
-    var dr = h * (opts.price ? 0.24 : 0.28);
-    var disc = new PIXI.Graphics();
-    disc.circle(w / 2, iconY, dr).fill(mix(product.accent, 0xFFFFFF, 0.5));
-    disc.circle(w / 2, iconY, dr).stroke({ width: 3, color: mix(product.accent, C.ink, 0.45) });
-    disc.circle(w / 2 - dr * 0.35, iconY - dr * 0.4, dr * 0.22).fill({ color: 0xFFFFFF, alpha: 0.55 });
-    c.addChild(disc);
-
-    var icon = productIcon(product, Math.round(h * (opts.price ? 0.44 : 0.52)));
-    icon.x = w / 2; icon.y = iconY;
+    var icon = productIcon(product, Math.min(w, h * (opts.price ? 0.68 : 0.96)) * 1.02);
+    icon.x = w / 2; icon.y = h * (opts.price ? 0.36 : 0.46);
     c.addChild(icon);
 
-    var nm = label(product.name, Math.max(12, Math.round(h * 0.115)), C.ink, '800');
-    nm.anchor.set(0.5);
-    nm.x = w / 2; nm.y = opts.price ? h * 0.70 : h * 0.82;
-    c.addChild(nm);
-
     if (opts.price) {
-      var pr = label(money(priceOf(product)), Math.max(12, Math.round(h * 0.105)), C.inkSoft, '700');
+      var tag = new PIXI.Graphics();
+      tag.roundRect(w / 2 - 36, h * 0.78, 72, 30, 15).fill(C.cream);
+      tag.roundRect(w / 2 - 36, h * 0.78, 72, 30, 15).stroke({ width: 3, color: C.ink, alpha: 0.75 });
+      c.addChild(tag);
+      var pr = label(money(priceOf(product)), 16, C.ink, '800');
       pr.anchor.set(0.5);
-      pr.x = w / 2; pr.y = h * 0.87;
+      pr.x = w / 2; pr.y = h * 0.78 + 15;
       c.addChild(pr);
     }
 
     if (state.saleProduct === product.id) {
       var badge = new PIXI.Graphics();
-      badge.roundRect(w - 46, 4, 42, 26, 10).fill(C.red);
-      badge.roundRect(w - 46, 4, 42, 26, 10).stroke({ width: 3, color: C.ink, alpha: 0.8 });
+      badge.roundRect(w - 40, 2, 38, 24, 10).fill(C.red);
+      badge.roundRect(w - 40, 2, 38, 24, 10).stroke({ width: 3, color: C.ink, alpha: 0.8 });
       badge.rotation = -0.12;
       c.addChild(badge);
-      var bt = label('×2', 16, 0xFFFFFF, '800');
-      bt.anchor.set(0.5); bt.x = w - 25; bt.y = 16; bt.rotation = -0.12;
+      var bt = label('×2', 15, 0xFFFFFF, '800');
+      bt.anchor.set(0.5); bt.x = w - 21; bt.y = 14; bt.rotation = -0.12;
       c.addChild(bt);
     }
 
@@ -682,6 +679,7 @@
       c.x = w / 2; c.y = h / 2;
       c.rotation = opts.tilt;
     }
+    if (opts.alpha != null) c.alpha = opts.alpha;
     wrap.cardW = w; wrap.cardH = h;
     return wrap;
   }
@@ -884,9 +882,9 @@
     zoneNodes = {};
 
     var g = new PIXI.Graphics();
-    g.roundRect(PANEL_X - 6, TRAY_PANEL_Y, PANEL_W + 12, 242, 26).fill(C.wood);
-    g.roundRect(PANEL_X, TRAY_PANEL_Y + 6, PANEL_W, 230, 22).fill(mix(C.wood, C.woodDark, 0.3));
-    g.roundRect(PANEL_X - 6, TRAY_PANEL_Y, PANEL_W + 12, 242, 26).stroke({ width: 4, color: C.woodDark });
+    g.roundRect(PANEL_X - 6, TRAY_PANEL_Y, PANEL_W + 12, 206, 26).fill(C.wood);
+    g.roundRect(PANEL_X, TRAY_PANEL_Y + 6, PANEL_W, 194, 22).fill(mix(C.wood, C.woodDark, 0.3));
+    g.roundRect(PANEL_X - 6, TRAY_PANEL_Y, PANEL_W + 12, 206, 26).stroke({ width: 4, color: C.woodDark });
     layers.trayStatic.addChild(g);
 
     var cap = label('ПРИЛАВОК · три одинаковых = продажа', 17, 0xFFF0D6, '800');
@@ -1008,7 +1006,7 @@
     var w = traySlotW();
     state.tray.forEach(function (pid, i) {
       if (!pid || hiddenSlots['slot:' + i]) return;
-      var c = card(productById(pid), w, TRAY_H, { tilt: ((i % 2) ? 1 : -1) * 0.03 });
+      var c = productPiece(productById(pid), w, TRAY_H, { tilt: ((i % 2) ? 1 : -1) * 0.03 });
       c.x = slotX(i); c.y = TRAY_Y;
       if (fx && fx.pop === i) squashIn(c, w, TRAY_H);
       layers.trayItems.addChild(c);
@@ -1025,19 +1023,19 @@
     var fw = fridgeSlotW();
     state.fridge.forEach(function (pid, k) {
       var p = fridgeSlotPos(k);
-      var c = card(productById(pid), fw, FRIDGE_SLOT_H, {
+      var c = productPiece(productById(pid), fw, FRIDGE_SLOT_H, {
         selected: state.selected && state.selected.from === 'fridge' && state.selected.index === k
       });
       c.x = p.x; c.y = p.y;
       c.eventMode = 'static'; c.cursor = 'pointer';
-      c.on('pointertap', function () { select('fridge', k); });
+      c.on('pointerdown', function (ev) { beginDrag('fridge', k, productById(pid), ev); });
       layers.fridgeItems.addChild(c);
     });
 
     var bw = beltCellW();
     state.belt.slice(0, beltVisible()).forEach(function (pid, k) {
       var selected = state.selected && state.selected.from === 'belt' && state.selected.index === k;
-      var c = card(productById(pid), bw, BELT_H, { selected: selected, price: true });
+      var c = productPiece(productById(pid), bw, BELT_H, { selected: selected, price: true, alpha: dragging(k) ? 0.3 : 1 });
       var p = beltSlotPos(k);
       c.x = p.x; c.y = p.y - (selected ? 12 : 0);
       c.baseY = p.y - (selected ? 12 : 0);
@@ -1049,7 +1047,7 @@
         selectedNode = c;
       }
       c.eventMode = 'static'; c.cursor = 'pointer';
-      c.on('pointertap', function () { select('belt', k); });
+      c.on('pointerdown', function (ev) { beginDrag('belt', k, productById(pid), ev); });
       layers.beltItems.addChild(c);
       beltNodes.push(c);
     });
@@ -1061,6 +1059,74 @@
       button(BTN_X0 + BTN_W + BTN_GAP, BTN_Y, BTN_W, BTN_H, 'Отложить', 'ещё ' + b.fridge, b.fridge > 0 && playing, boosterFridge),
       button(BTN_X0 + (BTN_W + BTN_GAP) * 2, BTN_Y, BTN_W, BTN_H, 'Перемешать', 'ещё ' + b.shuffle, b.shuffle > 0 && playing, boosterShuffle)
     );
+  }
+
+  /* ------------------------------------------------------- перетаскивание */
+
+  var drag = null;
+
+  function dragging(index) {
+    return !!(drag && drag.active && drag.from === 'belt' && drag.index === index);
+  }
+
+  function zoneUnder(pt) {
+    for (var i = 0; i < ZONES.length; i++) {
+      var b = zoneBox(ZONES[i].id);
+      if (pt.x >= b.x - 6 && pt.x <= b.x + b.w + 6 && pt.y >= b.y - 40 && pt.y <= b.y + b.h + 10) {
+        return ZONES[i].id;
+      }
+    }
+    return null;
+  }
+
+  function beginDrag(from, index, product, ev) {
+    if (state.status !== 'playing') return;
+    var p = root.toLocal(ev.global);
+    drag = { from: from, index: index, product: product, startX: p.x, startY: p.y, active: false, ghost: null };
+  }
+
+  function moveDrag(ev) {
+    if (!drag) return;
+    var p = root.toLocal(ev.global);
+    if (!drag.active) {
+      var dx = p.x - drag.startX, dy = p.y - drag.startY;
+      if (dx * dx + dy * dy < 144) return;        // короткое движение — это тап
+      drag.active = true;
+      state.selected = { from: drag.from, index: drag.index };
+      sfx('select');
+      render();
+      var w = traySlotW();
+      drag.ghost = productPiece(drag.product, w * 1.25, TRAY_H * 1.25, {});
+      drag.ghost.pivot.set(w * 0.62, TRAY_H * 0.62);
+      layers.fx.addChild(drag.ghost);
+    }
+    drag.ghost.x = p.x; drag.ghost.y = p.y;
+    drag.ghost.rotation = Math.max(-0.2, Math.min(0.2, (p.x - drag.startX) / 900));
+
+    var over = zoneUnder(p);
+    ZONES.forEach(function (z) {
+      var r = zoneRange(z.id), free = false;
+      for (var i = r.from; i < r.to; i++) if (state.tray[i] === null) free = true;
+      var own = drag.product.section === z.id;
+      zoneNodes[z.id].hint.alpha = (over === z.id && free) ? 1 : (own && free ? 0.55 : 0);
+    });
+  }
+
+  function endDrag(ev) {
+    if (!drag) return;
+    var d = drag;
+    drag = null;
+    if (d.ghost) d.ghost.destroy();
+
+    if (!d.active) {                              // обычный тап — старое поведение
+      select(d.from, d.index);
+      return;
+    }
+    var p = root.toLocal(ev.global);
+    var zone = zoneUnder(p);
+    state.selected = { from: d.from, index: d.index };
+    if (zone) place(zone);
+    else { state.selected = null; toast('Товар кладут на прилавок'); render(); }
   }
 
   function selectedProduct() {
@@ -1191,7 +1257,7 @@
 
   function flyGhost(product, from, to, done) {
     var w = beltCellW(), tw = traySlotW();
-    var ghost = card(product, w, BELT_H, {});
+    var ghost = productPiece(product, w, BELT_H, {});
     ghost.x = from.x; ghost.y = from.y;
     layers.fx.addChild(ghost);
     var arc = 90 + Math.random() * 30;
@@ -1212,7 +1278,7 @@
 
     var w = traySlotW();
     fx.slots.forEach(function (slot) {
-      var ghost = card(fx.product, w, TRAY_H, {});
+      var ghost = productPiece(fx.product, w, TRAY_H, {});
       ghost.x = slotX(slot) + w / 2; ghost.y = TRAY_Y + TRAY_H / 2;
       ghost.pivot.set(w / 2, TRAY_H / 2);
       layers.fx.addChild(ghost);
@@ -1249,13 +1315,13 @@
     var face = faceGraphic(24, 'happy');
     face.x = -96; face.y = 0;
     box.addChild(face);
-    box.x = W / 2; box.y = QUEUE_Y + QUEUE_H - 16;
+    box.x = W / 2; box.y = TRAY_PANEL_Y - 28;
     box.rotation = 0.05;
     box.scale.set(0.3);
     layers.fx.addChild(box);
     anim(1100, function (p) {
       box.scale.set(0.3 + 0.7 * easeBack(Math.min(p * 2.4, 1)));
-      box.y = QUEUE_Y + QUEUE_H - 16 - 24 * easeOut(p);
+      box.y = TRAY_PANEL_Y - 28 - 22 * easeOut(p);
       box.alpha = p > 0.7 ? (1 - p) * 3.3 : 1;
     }, function () { box.destroy(); });
   }
@@ -1303,13 +1369,13 @@
     var t = label('КОМБО ×' + mult.toFixed(1), 25, 0xFFFFFF, '800');
     t.anchor.set(0.5);
     box.addChild(t);
-    box.x = W / 2; box.y = TRAY_PANEL_Y - 26;
+    box.x = W / 2; box.y = TRAY_Y + 40;
     box.rotation = -0.09;
     box.scale.set(0.3);
     layers.fx.addChild(box);
     anim(1000, function (p) {
       box.scale.set(0.3 + 0.7 * easeBack(Math.min(p * 2.5, 1)));
-      box.y = TRAY_PANEL_Y - 26 - 20 * easeOut(p);
+      box.y = TRAY_Y + 40 - 20 * easeOut(p);
       box.alpha = p > 0.65 ? (1 - p) * 2.9 : 1;
     }, function () { box.destroy(); });
   }
@@ -1647,6 +1713,12 @@
       loadArt().then(function () { render(); });
       window.addEventListener('resize', fit);
 
+      app.stage.eventMode = 'static';
+      app.stage.hitArea = { contains: function () { return true; } };
+      app.stage.on('pointermove', moveDrag);
+      app.stage.on('pointerup', endDrag);
+      app.stage.on('pointerupoutside', endDrag);
+
       var unlock = function () { if (window.ShopAudio) window.ShopAudio.unlock(); };
       window.addEventListener('pointerdown', unlock, { once: true });
       window.addEventListener('keydown', unlock, { once: true });
@@ -1679,7 +1751,7 @@
         select: select, place: place, autoStep: autoStep,
         booster: { undo: boosterUndo, fridge: boosterFridge, shuffle: boosterShuffle },
         nextShift: nextShift, retryShift: retryShift,
-        shop: showShop, buy: buyUpgrade,
+        shop: showShop, buy: buyUpgrade, zoneUnder: zoneUnder,
         fridgeSize: fridgeSize, beltVisible: beltVisible, traySize: traySize,
         zoneRange: zoneRange, zoneOfSlot: zoneOfSlot,
         startShift: function (i, seed) { hideOverlay(); startShift(i, seed); rebuildBoard(); render(); }
