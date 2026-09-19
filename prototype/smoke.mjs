@@ -273,6 +273,35 @@ const persisted = await page.evaluate(() => {
 console.log('журнал после перезагрузки', JSON.stringify(persisted));
 if (persisted.shifts !== 1 || !persisted.boot) fail('журнал не пережил перезагрузку');
 
+// 14. новая сборка сносит прогресс, та же сборка — сохраняет
+const build = await page.evaluate(() => window.__proto.build);
+await page.evaluate(() => {
+  localStorage.setItem('shopsort.meta', JSON.stringify({
+    build: 'прошлая-сборка', wallet: 5000, shiftIdx: 4, streak: 3, total: 9000,
+    up: { counter: 2, fridge: 1, cart: 1, cash: 1, sign: 1 }
+  }));
+});
+await page.reload();
+await page.waitForFunction(() => window.__proto, null, { timeout: 15000 });
+const reset = await page.evaluate(() => {
+  const P = window.__proto;
+  return { wallet: P.meta.wallet, shiftIdx: P.meta.shiftIdx, counter: P.meta.up.counter,
+           streak: P.streak, stored: JSON.parse(localStorage.getItem('shopsort.meta')).build,
+           logged: P.log.events.some(e => e.type === 'build_reset') };
+});
+console.log('сброс по сборке', JSON.stringify(reset));
+if (reset.wallet !== 0 || reset.shiftIdx !== 0 || reset.counter !== 0 || reset.streak !== 0)
+  fail('прогресс прошлой сборки не сброшен');
+if (reset.stored !== build) fail('отметка новой сборки не сохранена');
+if (!reset.logged) fail('сброс по сборке не попал в журнал');
+
+await page.evaluate(() => { window.__proto.meta.wallet = 9999; window.__proto.buy('counter'); });
+await page.reload();
+await page.waitForFunction(() => window.__proto, null, { timeout: 15000 });
+const kept = await page.evaluate(() => ({ counter: window.__proto.meta.up.counter }));
+console.log('та же сборка', JSON.stringify(kept));
+if (kept.counter !== 1) fail('прогресс той же сборки не пережил перезагрузку');
+
 await page.screenshot({ path: '/tmp/smoke-final.png' });
 await browser.close();
 console.log('ошибки в консоли:', errors.length ? errors : 'нет');

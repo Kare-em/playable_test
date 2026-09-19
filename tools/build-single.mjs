@@ -18,6 +18,11 @@ const [pixi, audio, art, game] = await Promise.all([
 // иначе браузер закроет <script> на первом же вхождении внутри кода
 const safe = (js) => js.replace(/\/\/# sourceMappingURL=.*$/m, '').replace(/<\/script/gi, '<\\/script');
 
+// Отметка сборки: каждая публикация получает свою, и прогресс игрока с прошлой
+// версии обнуляется на первом же запуске — плейтест всегда с первой смены.
+const build = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15);
+const stamp = (js) => js.replace("var BUILD = 'dev';", "var BUILD = '" + build + "';");
+
 const html = `<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -41,13 +46,14 @@ const html = `<!DOCTYPE html>
 <script>${safe(pixi)}</script>
 <script>${safe(audio)}</script>
 <script>${safe(art)}</script>
-<script>${safe(game)}</script>
+<script>${stamp(safe(game))}</script>
 </body>
 </html>
 `;
 
 await mkdir(new URL('dist/', root), { recursive: true });
 await writeFile(new URL('dist/shop-sort-test.html', root), html);
+console.log('сборка', build);
 console.log('dist/shop-sort-test.html:', (Buffer.byteLength(html) / 1024).toFixed(0), 'КБ');
 
 // Вариант для публикации ссылкой: хост сам оборачивает файл в html/head/body
@@ -65,7 +71,7 @@ const page = `<title>Магазин у дома</title>
 <script>${safe(pixi)}</script>
 <script>${safe(audio)}</script>
 <script>${safe(art)}</script>
-<script>${safe(game)}</script>
+<script>${stamp(safe(game))}</script>
 `;
 await writeFile(new URL('dist/artifact-shop-sort.html', root), page);
 console.log('dist/artifact-shop-sort.html:', (Buffer.byteLength(page) / 1024).toFixed(0), 'КБ');
