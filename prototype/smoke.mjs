@@ -141,6 +141,49 @@ const endless = await page.evaluate(() => {
 console.log('бесконечные смены', JSON.stringify(endless));
 if (!endless.solvable || !endless.mod3) fail('поздние смены нерешаемы');
 
+// 9. журнал плейтеста: события смены, сводка, выгрузка и панель
+const journal = await page.evaluate(() => {
+  const P = window.__proto;
+  P.log.clear();
+  P.startShift(0, 4242);
+  let steps = 0;
+  while (P.state.status === 'playing' && steps < 400) {
+    if (steps === 3) P.booster.undo();          // тяга к «Вернуть» должна попасть в журнал
+    if (!P.autoStep()) break;
+    steps++;
+  }
+  const ev = P.log.events;
+  const end = ev.filter(e => e.type === 'shift_end')[0] || null;
+  const booster = ev.filter(e => e.type === 'booster')[0] || null;
+  let parsed = null;
+  try { parsed = JSON.parse(P.log.text()); } catch (e) {}
+  P.log.panel();
+  const panelOpen = !!document.querySelector('textarea');
+  P.log.hidePanel();
+  return { start: ev.some(e => e.type === 'shift_start'), end, booster,
+           summary: P.log.summary(), panelOpen, panelClosed: !document.querySelector('textarea'),
+           textOk: !!(parsed && parsed.summary && Array.isArray(parsed.events)) };
+});
+console.log('журнал', JSON.stringify({ shifts: journal.summary.shifts, moves: journal.end && journal.end.moves,
+  home: journal.end && journal.end.home, homeRate: journal.summary.homeRate, undo: journal.summary.undo }));
+if (!journal.start || !journal.end) fail('смена не попала в журнал плейтеста');
+if (!(journal.end.moves > 0) || journal.end.home > journal.end.moves) fail('выкладки посчитаны неверно');
+if (journal.summary.shifts !== 1 || journal.summary.undo !== 1) fail('сводка журнала не сходится');
+if (!journal.booster || journal.booster.kind !== 'undo' || typeof journal.booster.filled !== 'number')
+  fail('бустер записан без контекста');
+if (!journal.textOk) fail('выгрузка журнала не разбирается как JSON');
+if (!journal.panelOpen || !journal.panelClosed) fail('панель журнала не открывается или не закрывается');
+
+// 10. журнал переживает перезагрузку — плейтест идёт в несколько заходов
+await page.reload();
+await page.waitForFunction(() => window.__proto, null, { timeout: 15000 });
+const persisted = await page.evaluate(() => {
+  const P = window.__proto;
+  return { shifts: P.log.summary().shifts, boot: P.log.events.some(e => e.type === 'boot') };
+});
+console.log('журнал после перезагрузки', JSON.stringify(persisted));
+if (persisted.shifts !== 1 || !persisted.boot) fail('журнал не пережил перезагрузку');
+
 await page.screenshot({ path: '/tmp/smoke-final.png' });
 await browser.close();
 console.log('ошибки в консоли:', errors.length ? errors : 'нет');

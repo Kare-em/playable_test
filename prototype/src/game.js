@@ -139,6 +139,216 @@
     try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) {}
   }
 
+  /* ------------------------------------------------------- журнал плейтеста */
+  // Плейтест идёт на чужих телефонах, где консоли нет. Всё, ради чего мы вообще
+  // смотрим на игрока (смены подряд, попадание в свою зону, тяга к «Вернуть»),
+  // копится в localStorage и выгружается текстом с экрана магазина.
+
+  var LOG_KEY = 'shopsort.log';
+  var LOG_MAX = 400;                  // событий; старые вытесняются
+  var logEvents = loadLog();
+  var shiftStat = null;               // счётчики текущей смены
+
+  function loadLog() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
+      return Array.isArray(raw) ? raw : [];
+    } catch (e) { return []; }
+  }
+
+  function saveLog() {
+    try { localStorage.setItem(LOG_KEY, JSON.stringify(logEvents)); }
+    catch (e) {                       // кончилось место — режем историю пополам
+      logEvents = logEvents.slice(-Math.floor(LOG_MAX / 2));
+      try { localStorage.setItem(LOG_KEY, JSON.stringify(logEvents)); } catch (e2) {}
+    }
+  }
+
+  function logEvent(type, data) {
+    var ev = { at: Date.now(), type: type };
+    if (data) for (var k in data) if (Object.prototype.hasOwnProperty.call(data, k)) ev[k] = data[k];
+    logEvents.push(ev);
+    if (logEvents.length > LOG_MAX) logEvents.splice(0, logEvents.length - LOG_MAX);
+    saveLog();
+    return ev;
+  }
+
+  function clearLog() { logEvents = []; saveLog(); }
+
+  function upgradeSnapshot() {
+    var out = {};
+    UPGRADES.forEach(function (u) { out[u.id] = meta.up[u.id]; });
+    return out;
+  }
+
+  function filledSlots() {
+    return state.tray.filter(function (c) { return c; }).length;
+  }
+
+  // Бустер пишем поштучно: важно не сколько, а в какой момент за него берутся.
+  function logBooster(kind) {
+    logEvent('booster', { kind: kind, shift: state.shiftIdx + 1,
+      move: shiftStat ? shiftStat.moves : 0, filled: filledSlots(), tray: state.tray.length,
+      combo: state.combo, served: state.served, goal: state.goal, lost: state.lost });
+  }
+
+  // Сводка под три вопроса протокола плейтеста, а не «вся статистика вообще».
+  function logSummary() {
+    var s = { shifts: 0, won: 0, lost: 0, streakMax: 0, streakNow: streak,
+              moves: 0, home: 0, denyFull: 0, lostCustomers: 0,
+              undo: 0, fridge: 0, shuffle: 0, retries: 0, upgrades: 0,
+              minutes: 0, reasons: {} };
+    var first = { m: 0, h: 0 }, late = { m: 0, h: 0 };
+    logEvents.forEach(function (e) {
+      if (e.type === 'shift_end') {
+        s.shifts++;
+        if (e.status === 'won') s.won++;
+        else {
+          s.lost++;
+          var why = e.reason || 'план не выполнен';
+          s.reasons[why] = (s.reasons[why] || 0) + 1;
+        }
+        s.streakMax = Math.max(s.streakMax, e.streak || 0);
+        s.moves += e.moves || 0;
+        s.home += e.home || 0;
+        s.denyFull += e.denyFull || 0;
+        s.lostCustomers += e.lost || 0;
+        s.minutes += (e.sec || 0) / 60;
+        var bucket = e.shift === 1 ? first : (e.shift >= 3 ? late : null);
+        if (bucket) { bucket.m += e.moves || 0; bucket.h += e.home || 0; }
+      } else if (e.type === 'booster') {
+        if (s[e.kind] != null) s[e.kind]++;
+      } else if (e.type === 'retry') s.retries++;
+      else if (e.type === 'upgrade') s.upgrades++;
+    });
+    s.homeRate = s.moves ? s.home / s.moves : null;
+    s.homeRateFirst = first.m ? first.h / first.m : null;
+    s.homeRateLate = late.m ? late.h / late.m : null;
+    s.minutes = Math.round(s.minutes * 10) / 10;
+    return s;
+  }
+
+  function logText() {
+    return JSON.stringify({ v: 1, saved: new Date().toISOString(),
+                            summary: logSummary(), events: logEvents });
+  }
+
+  /* ---------------------------------------------- экран журнала (обычный DOM) */
+  // Здесь нужны выделение текста и системное «скопировать», поэтому панель
+  // рисуется не в Pixi, а элементами страницы поверх канваса.
+
+  var logPanelEl = null;
+
+  function pct(v) { return v == null ? '—' : Math.round(v * 100) + '%'; }
+
+  function logPanelRow(label, value) {
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:12px;justify-content:space-between;' +
+      'padding:6px 0;border-bottom:1px solid rgba(246,236,220,0.15)';
+    var k = document.createElement('span');
+    k.textContent = label;
+    k.style.cssText = 'color:#C8B79B';
+    var v = document.createElement('span');
+    v.textContent = value;
+    v.style.cssText = 'font-weight:700;text-align:right';
+    row.appendChild(k); row.appendChild(v);
+    return row;
+  }
+
+  function logPanelButton(text, onTap) {
+    var b = document.createElement('button');
+    b.textContent = text;
+    b.style.cssText = 'flex:1;padding:14px 8px;border:0;border-radius:12px;background:#E0A63A;' +
+      'color:#2B2118;font:700 16px/1 -apple-system,Segoe UI,Roboto,sans-serif;cursor:pointer';
+    b.addEventListener('click', onTap);
+    return b;
+  }
+
+  function showLogPanel() {
+    if (logPanelEl) return;
+    var s = logSummary();
+
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:20;box-sizing:border-box;padding:16px;' +
+      'background:#2B2118;color:#F6ECDC;overflow:auto;display:flex;flex-direction:column;gap:12px;' +
+      'font:15px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;' +
+      'user-select:text;-webkit-user-select:text';
+
+    var head = document.createElement('div');
+    head.textContent = 'Журнал плейтеста';
+    head.style.cssText = 'font-size:21px;font-weight:800';
+    wrap.appendChild(head);
+
+    var rows = document.createElement('div');
+    [ ['Смен сыграно', s.shifts + ' (побед ' + s.won + ', сорвано ' + s.lost + ')'],
+      ['Смен подряд', 'рекорд ' + s.streakMax + ', сейчас ' + s.streakNow],
+      ['Выкладок в свою зону', pct(s.homeRate)],
+      ['…в первой смене / с третьей', pct(s.homeRateFirst) + ' → ' + pct(s.homeRateLate)],
+      ['Бустеры', 'вернуть ' + s.undo + ', отложить ' + s.fridge + ', перемешать ' + s.shuffle],
+      ['Тапов по забитой зоне', String(s.denyFull)],
+      ['Ушло покупателей', String(s.lostCustomers)],
+      ['Переигровок / апгрейдов', s.retries + ' / ' + s.upgrades],
+      ['Время в игре', s.minutes + ' мин']
+    ].forEach(function (r) { rows.appendChild(logPanelRow(r[0], r[1])); });
+    Object.keys(s.reasons).forEach(function (why) {
+      rows.appendChild(logPanelRow('Срыв: ' + why, String(s.reasons[why])));
+    });
+    wrap.appendChild(rows);
+
+    var hint = document.createElement('div');
+    hint.textContent = 'Скопируйте текст ниже и пришлите — в нём вся сессия.';
+    hint.style.cssText = 'color:#C8B79B;font-size:13px';
+    wrap.appendChild(hint);
+
+    var area = document.createElement('textarea');
+    area.readOnly = true;
+    area.value = logText();
+    area.style.cssText = 'flex:1;min-height:140px;width:100%;box-sizing:border-box;padding:10px;' +
+      'border-radius:12px;border:1px solid rgba(246,236,220,0.25);background:#1F1811;color:#E8D9C3;' +
+      'font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:none';
+    wrap.appendChild(area);
+
+    var note = document.createElement('div');
+    note.style.cssText = 'min-height:18px;color:#8FBF6A;font-size:13px';
+    wrap.appendChild(note);
+
+    var legacyCopy = function () {
+      try { area.focus(); area.select(); return document.execCommand('copy'); }
+      catch (e) { return false; }
+    };
+    var copy = function () {
+      area.focus(); area.select();
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(area.value).then(
+          function () { note.textContent = 'Скопировано'; },
+          function () { note.textContent = legacyCopy() ? 'Скопировано' : 'Выделите текст и скопируйте вручную'; });
+        return;
+      }
+      note.textContent = legacyCopy() ? 'Скопировано' : 'Выделите текст и скопируйте вручную';
+    };
+
+    var bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;gap:10px';
+    bar.appendChild(logPanelButton('Скопировать', copy));
+    bar.appendChild(logPanelButton('Очистить', function () {
+      if (!window.confirm('Стереть журнал плейтеста?')) return;
+      clearLog();
+      area.value = logText();
+      note.textContent = 'Журнал очищен';
+    }));
+    bar.appendChild(logPanelButton('Закрыть', hideLogPanel));
+    wrap.appendChild(bar);
+
+    document.body.appendChild(wrap);
+    logPanelEl = wrap;
+  }
+
+  function hideLogPanel() {
+    if (!logPanelEl) return;
+    if (logPanelEl.parentNode) logPanelEl.parentNode.removeChild(logPanelEl);
+    logPanelEl = null;
+  }
+
   function upgradeById(id) {
     for (var i = 0; i < UPGRADES.length; i++) if (UPGRADES[i].id === id) return UPGRADES[i];
     return null;
@@ -154,6 +364,7 @@
     meta.wallet -= price;
     meta.up[u.id] += 1;
     saveMeta();
+    logEvent('upgrade', { id: u.id, level: meta.up[u.id], price: price, wallet: meta.wallet });
     sfx('booster');
     showShop();
     return true;
@@ -257,6 +468,10 @@
     shownRevenue = 0;
     hiddenSlots = {};
     for (var i = 0; i < QUEUE_SIZE; i++) spawnCustomer();
+    shiftStat = { started: Date.now(), moves: 0, home: 0, denyFull: 0 };
+    logEvent('shift_start', { shift: shiftIdx + 1, goal: cfg.goal, tray: state.tray.length,
+      belt: state.belt.length, patience: cfg.patience + meta.up.sign * 5,
+      up: upgradeSnapshot(), streak: streak });
     return state;
   }
 
@@ -340,7 +555,10 @@
     var range = zoneRange(zoneId);
     var slot = -1;
     for (var i = range.from; i < range.to; i++) if (state.tray[i] === null) { slot = i; break; }
-    if (slot === -1) { toast('В этой зоне нет места'); shakeZone(zoneId); sfx('deny'); return false; }
+    if (slot === -1) {
+      if (shiftStat) shiftStat.denyFull++;
+      toast('В этой зоне нет места'); shakeZone(zoneId); sfx('deny'); return false;
+    }
 
     var sel = state.selected;
     var productId = sel.from === 'belt' ? state.belt[sel.index] : state.fridge[sel.index];
@@ -354,6 +572,10 @@
     state.tray[slot] = productId;
     state.selected = null;
     state.lastPlacement = { slot: slot, productId: productId, from: sel.from };
+    if (shiftStat) {
+      shiftStat.moves++;
+      if (productById(productId).section === zoneId) shiftStat.home++;
+    }
 
     var sale = resolveSale();
     tickPatience();
@@ -433,6 +655,7 @@
     else state.belt.unshift(lp.productId);
     state.lastPlacement = null;
     state.boosters.undo--;
+    logBooster('undo');
     toast('Товар возвращён');
     sfx('booster');
     render();
@@ -446,6 +669,7 @@
     state.fridge.push(state.belt.splice(state.selected.index, 1)[0]);
     state.selected = null;
     state.boosters.fridge--;
+    logBooster('fridge');
     toast('Товар отложен в холодильник');
     sfx('booster');
     render();
@@ -461,6 +685,7 @@
     }
     state.selected = null;
     state.boosters.shuffle--;
+    logBooster('shuffle');
     toast('Завоз перемешан');
     sfx('booster');
     render();
@@ -482,6 +707,12 @@
     }
     meta.streak = streak;
     saveMeta();
+    var stat = shiftStat || { started: Date.now(), moves: 0, home: 0, denyFull: 0 };
+    logEvent('shift_end', { shift: state.shiftIdx + 1, status: status, reason: reason || null,
+      revenue: Math.round(state.revenue), served: state.served, goal: state.goal,
+      lost: state.lost, combo: bestCombo, streak: streak, moves: stat.moves, home: stat.home,
+      denyFull: stat.denyFull, sec: Math.round((Date.now() - stat.started) / 1000) });
+    shiftStat = null;
     if (window.console) console.log('[playtest] shift', state.shiftIdx + 1, status,
       'revenue', Math.round(state.revenue), 'served', state.served, 'streak', streak);
     render();
@@ -497,6 +728,7 @@
   }
 
   function retryShift() {
+    logEvent('retry', { shift: state.shiftIdx + 1 });
     hideOverlay();
     startShift(state.shiftIdx, Date.now() & 0xffff);
     rebuildBoard();
@@ -1574,12 +1806,19 @@
         render();
       }));
 
+    var journal = label('журнал плейтеста', 16, C.inkSoft, '600');
+    journal.anchor.set(0, 0.5); journal.x = px + 30; journal.y = py + ph - 20;
+    journal.eventMode = 'static'; journal.cursor = 'pointer';
+    journal.on('pointertap', showLogPanel);
+    overlay.addChild(journal);
+
     var reset = label('сбросить прогресс', 16, C.inkSoft, '600');
-    reset.anchor.set(0.5); reset.x = W / 2; reset.y = py + ph - 20;
+    reset.anchor.set(1, 0.5); reset.x = px + pw - 30; reset.y = py + ph - 20;
     reset.eventMode = 'static'; reset.cursor = 'pointer';
     reset.on('pointertap', function () {
       meta = defaultMeta(); streak = 0; totalRevenue = 0;
       saveMeta();
+      logEvent('reset', {});
       sfx('deny');
       showShop();
     });
@@ -1707,6 +1946,9 @@
       root = new PIXI.Container();
       app.stage.addChild(root);
 
+      logEvent('boot', { w: window.innerWidth, h: window.innerHeight,
+        dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
+        ua: (navigator.userAgent || '').slice(0, 120) });
       startShift(meta.shiftIdx);
       buildStatic();
       fit();
@@ -1754,7 +1996,12 @@
         shop: showShop, buy: buyUpgrade, zoneUnder: zoneUnder,
         fridgeSize: fridgeSize, beltVisible: beltVisible, traySize: traySize,
         zoneRange: zoneRange, zoneOfSlot: zoneOfSlot,
-        startShift: function (i, seed) { hideOverlay(); startShift(i, seed); rebuildBoard(); render(); }
+        startShift: function (i, seed) { hideOverlay(); startShift(i, seed); rebuildBoard(); render(); },
+        log: {
+          get events() { return logEvents.slice(); },
+          summary: logSummary, text: logText, clear: clearLog,
+          panel: showLogPanel, hidePanel: hideLogPanel
+        }
       };
     });
   }
