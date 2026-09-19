@@ -437,6 +437,30 @@ if (!(variety.two[0] < variety.two[1] && variety.two[1] < variety.two[2]))
 if (variety.zones2.length !== 2) fail('в завоз попал товар закрытого отдела');
 if (variety.zones5.length !== 5) fail('после покупки отделов их товар не попадает в завоз');
 
+// 21. оборванный жест не оставляет товар висеть над залом
+const dragFrom = await page.evaluate(() => {
+  const P = window.__proto;
+  P.startShift(0, 4242);
+  const box = P.beltPos(0);
+  return P.pagePoint({ x: box.x + 30, y: box.y + 40 });
+});
+await page.mouse.move(dragFrom.x, dragFrom.y);
+await page.mouse.down();
+await page.mouse.move(dragFrom.x, dragFrom.y - 120, { steps: 6 });
+const ghost = await page.evaluate(async () => {
+  const P = window.__proto;
+  const during = P.fxCount();
+  window.dispatchEvent(new PointerEvent('pointercancel', {   // система забрала жест
+    pointerId: 1, pointerType: 'touch', isPrimary: true, bubbles: true
+  }));
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  return { during, after: P.fxCount() };
+});
+await page.mouse.up();
+console.log('оборванный жест', JSON.stringify(ghost));
+if (ghost.during < 1) fail('призрак перетаскивания не появился — тест ничего не проверил');
+if (ghost.after !== 0) fail('после обрыва жеста спрайт остался висеть над залом');
+
 await page.screenshot({ path: '/tmp/smoke-final.png' });
 await browser.close();
 console.log('ошибки в консоли:', errors.length ? errors : 'нет');

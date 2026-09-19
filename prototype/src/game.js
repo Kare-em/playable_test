@@ -1112,6 +1112,7 @@
   /* ---------------------------------------------------------- конец смены */
 
   function finish(status, reason) {
+    cancelDrag();
     state.status = status;
     if (status === 'won') {
       streak += 1;
@@ -1202,7 +1203,9 @@
   function slotY(i) { return slotPos(i).y; }
   var BELT_PANEL_Y = 452, BELT_Y = 494, BELT_H = 116, BELT_GAP = 8;
   var FRIDGE_Y = 632, FRIDGE_SLOT_W = 92, FRIDGE_SLOT_H = 72;
-  var BTN_X0 = 1046, BTN_Y = 452, BTN_W = 220, BTN_H = 74, BTN_GAP = 12;
+  // Бустеры — значками без подписей: колонка квадратных кнопок у правого края.
+  var BTN_SIZE = 86, BTN_GAP = 8, BTN_Y = 438, BTN_X0 = 1113;
+  function btnY(i) { return BTN_Y + i * (BTN_SIZE + BTN_GAP); }
   var PANEL_X = 320, PANEL_W = 946;          // стеллаж
   var BELT_X = 320, BELT_W = 700;            // завоз и холодильник уже стеллажа
 
@@ -1403,6 +1406,91 @@
       c.eventMode = 'static';
       c.cursor = 'pointer';
       c.on('pointerdown', function () { c.scale.set(0.96); });
+      c.on('pointerupoutside', function () { c.scale.set(1); });
+      c.on('pointertap', function () { c.scale.set(1); sfx('button'); onTap(); });
+    }
+    return c;
+  }
+
+  // Наконечник стрелки: рисуется вправо и разворачивается поворотом.
+  function arrowHead(x, y, rot, size, color) {
+    var h = new PIXI.Graphics();
+    h.moveTo(-size, -size * 0.85).lineTo(size * 0.95, 0).lineTo(-size, size * 0.85).closePath().fill(color);
+    h.x = x; h.y = y; h.rotation = rot;
+    return h;
+  }
+
+  // Значки бустеров: вернуть товар, отложить в холодильник, перемешать завоз.
+  function boosterIcon(id, s) {
+    var box = new PIXI.Container();
+    if (id === 'fridge') {                       // холодильник и стрелка внутрь
+      var f = new PIXI.Graphics();
+      f.roundRect(s * 0.08, s * 0.06, s * 0.5, s * 0.88, s * 0.12).fill(0xFFFFFF);
+      f.roundRect(s * 0.08, s * 0.06, s * 0.5, s * 0.88, s * 0.12)
+       .stroke({ width: s * 0.08, color: C.ink });
+      f.moveTo(s * 0.08, s * 0.4).lineTo(s * 0.58, s * 0.4)
+       .stroke({ width: s * 0.07, color: C.ink });
+      f.roundRect(s * 0.46, s * 0.14, s * 0.06, s * 0.18, s * 0.03).fill(C.ink);
+      f.roundRect(s * 0.46, s * 0.48, s * 0.06, s * 0.18, s * 0.03).fill(C.ink);
+      f.moveTo(s * 0.96, s * 0.66).lineTo(s * 0.78, s * 0.66)
+       .stroke({ width: s * 0.11, color: 0xFFFFFF, cap: 'round' });
+      box.addChild(f);
+      box.addChild(arrowHead(s * 0.7, s * 0.66, Math.PI, s * 0.15, 0xFFFFFF));
+      return box;
+    }
+    if (id === 'undo') {
+      var cx = s * 0.52, cy = s * 0.56, R = s * 0.3, a0 = Math.PI * 0.3, a1 = Math.PI * 1.92;
+      var sh = new PIXI.Graphics();
+      sh.arc(cx, cy + s * 0.05, R, a0, a1).stroke({ width: s * 0.18, color: 0x2E4A22, alpha: 0.35, cap: 'round' });
+      box.addChild(sh);
+      var arc = new PIXI.Graphics();
+      arc.arc(cx, cy, R, a0, a1).stroke({ width: s * 0.17, color: 0xFFFFFF, cap: 'round' });
+      box.addChild(arc);
+      box.addChild(arrowHead(cx + Math.cos(a1) * R, cy + Math.sin(a1) * R, a1 + Math.PI / 2, s * 0.19, 0xFFFFFF));
+      return box;
+    }
+    var g = new PIXI.Graphics();                 // перемешать: две стрелки крест-накрест
+    [[0.26, 0.74], [0.74, 0.26]].forEach(function (pair) {
+      g.moveTo(s * 0.06, s * pair[0])
+       .bezierCurveTo(s * 0.42, s * pair[0], s * 0.44, s * pair[1], s * 0.74, s * pair[1])
+       .stroke({ width: s * 0.14, color: 0xFFFFFF, cap: 'round' });
+    });
+    box.addChild(g);
+    box.addChild(arrowHead(s * 0.86, s * 0.74, 0, s * 0.17, 0xFFFFFF));
+    box.addChild(arrowHead(s * 0.86, s * 0.26, 0, s * 0.17, 0xFFFFFF));
+    return box;
+  }
+
+  // Квадратная кнопка-значок: картинка и счётчик применений в углу.
+  function iconButton(x, y, id, count, enabled, onTap) {
+    var c = new PIXI.Container(), s = BTN_SIZE;
+    var g = new PIXI.Graphics();
+    var base = enabled ? 0x5FBF46 : 0xCFC4B2, lightTop = enabled ? 0x8FDC6A : 0xE2D9C9;
+    g.roundRect(2, 6, s, s, 22).fill({ color: 0x3A2717, alpha: enabled ? 0.32 : 0.12 });
+    g.roundRect(0, 0, s, s, 22).fill(base);
+    g.roundRect(5, 5, s - 10, s * 0.4, 16).fill({ color: lightTop, alpha: 0.95 });
+    g.roundRect(0, 0, s, s, 22).stroke({ width: 5, color: 0xFFFFFF, alpha: enabled ? 0.92 : 0.5 });
+    g.roundRect(-2, -2, s + 4, s + 4, 24).stroke({ width: 3.5, color: enabled ? 0x3F6E2F : 0x9A907E });
+    c.addChild(g);
+
+    var ic = boosterIcon(id, s * 0.64);
+    ic.x = s * 0.18; ic.y = s * 0.18;
+    ic.alpha = enabled ? 1 : 0.55;
+    c.addChild(ic);
+
+    var badge = new PIXI.Graphics();
+    badge.circle(s - 9, 9, 16).fill(enabled ? C.gold : 0xB6AC9A);
+    badge.circle(s - 9, 9, 16).stroke({ width: 3.5, color: C.ink, alpha: 0.9 });
+    c.addChild(badge);
+    var bt = label(String(count), 19, enabled ? C.ink : 0x6F675B, '800');
+    bt.anchor.set(0.5); bt.x = s - 9; bt.y = 9;
+    c.addChild(bt);
+
+    c.x = x; c.y = y;
+    if (enabled) {
+      c.eventMode = 'static';
+      c.cursor = 'pointer';
+      c.on('pointerdown', function () { c.scale.set(0.94); });
       c.on('pointerupoutside', function () { c.scale.set(1); });
       c.on('pointertap', function () { c.scale.set(1); sfx('button'); onTap(); });
     }
@@ -2078,9 +2166,9 @@
 
     var b = state.boosters, playing = state.status === 'playing';
     layers.buttons.addChild(
-      button(BTN_X0, BTN_Y, BTN_W, BTN_H, 'Вернуть', 'ещё ' + b.undo, b.undo > 0 && playing, boosterUndo),
-      button(BTN_X0, BTN_Y + BTN_H + BTN_GAP, BTN_W, BTN_H, 'Отложить', 'ещё ' + b.fridge, b.fridge > 0 && playing, boosterFridge),
-      button(BTN_X0, BTN_Y + (BTN_H + BTN_GAP) * 2, BTN_W, BTN_H, 'Перемешать', 'ещё ' + b.shuffle, b.shuffle > 0 && playing, boosterShuffle)
+      iconButton(BTN_X0, btnY(0), 'undo', b.undo, b.undo > 0 && playing, boosterUndo),
+      iconButton(BTN_X0, btnY(1), 'fridge', b.fridge, b.fridge > 0 && playing, boosterFridge),
+      iconButton(BTN_X0, btnY(2), 'shuffle', b.shuffle, b.shuffle > 0 && playing, boosterShuffle)
     );
   }
 
@@ -2142,8 +2230,23 @@
 
   function beginDrag(from, index, product, ev) {
     if (state.status !== 'playing') return;
+    dropGhost(drag);                              // прошлый жест мог оборваться
     var p = root.toLocal(ev.global);
-    drag = { from: from, index: index, product: product, startX: p.x, startY: p.y, active: false, ghost: null };
+    drag = { from: from, index: index, product: product, startX: p.x, startY: p.y,
+             active: false, ghost: null, last: p };
+  }
+
+  function dropGhost(d) {
+    if (d && d.ghost && !d.ghost.destroyed) d.ghost.destroy();
+  }
+
+  // Палец «потерялся» (свернули игру, системный жест, второе касание) — снимаем
+  // призрак и ничего не кладём: иначе картинка зависает над залом.
+  function cancelDrag() {
+    if (!drag) return;
+    dropGhost(drag);
+    drag = null;
+    render();
   }
 
   function moveDrag(ev) {
@@ -2160,7 +2263,9 @@
       drag.ghost = productPiece(drag.product, w * 1.25, trayH() * 1.25, {});
       drag.ghost.pivot.set(w * 0.62, trayH() * 0.62);
       layers.fx.addChild(drag.ghost);
+      drag.ghost.__drag = true;
     }
+    drag.last = p;
     drag.ghost.x = p.x; drag.ghost.y = p.y;
     drag.ghost.rotation = Math.max(-0.2, Math.min(0.2, (p.x - drag.startX) / 900));
 
@@ -2177,14 +2282,14 @@
     if (!drag) return;
     var d = drag;
     drag = null;
-    if (d.ghost) d.ghost.destroy();
+    dropGhost(d);
 
     if (!d.active) {                              // обычный тап — сразу в свой отдел
       tapItem(d.from, d.index);
       return;
     }
-    var p = root.toLocal(ev.global);
-    var zone = zoneUnder(p);
+    var p = (ev && ev.global) ? root.toLocal(ev.global) : d.last;
+    var zone = p ? zoneUnder(p) : null;
     state.selected = { from: d.from, index: d.index };
     if (zone) place(zone);
     else place(d.product.section);                 // бросок мимо — товар всё равно знает свой отдел
@@ -2242,13 +2347,21 @@
       var mood = customerMood(c);
       var counts = trayCounts();
 
-      var face = personGraphic(Math.min(30, qh * 0.26), c.face, mood);
-      face.x = 54; face.y = qh * 0.46;
+      var face = personGraphic(Math.min(28, qh * 0.24), c.face, mood);
+      face.x = 48; face.y = qh * 0.44;
       box.addChild(face);
 
-      // корзина: что уже забрано — с зелёной галочкой
-      var lines = c.order, r = Math.min(21, qh * 0.19), step = r * 2 + 8;
-      var x0 = 104 + r, cy = qh * 0.38;
+      // Корзина: значки крупные — на телефоне видно, что именно просят.
+      // Радиус берём по свободной ширине карточки и числу позиций в заказе.
+      var lines = c.order;
+      // Радиус — максимум, который влезает и по ширине карточки, и по высоте:
+      // под корзиной остаются строка настроения и полоса терпения.
+      var r = Math.min(30, Math.floor((qh - 57) / 2.25),
+                       Math.floor((qw - 100 - 10 * (lines.length - 1)) / (2 * lines.length)));
+      var step = r * 2 + 10;
+      var x0 = 94 + r, top = 8 + r;
+      var infoY = Math.max(top + r * 1.25 + 12, qh - 44);
+      var cy = (top + (infoY - 12 - r * 1.25)) / 2;   // корзина по центру свободного места
       lines.forEach(function (l, li) {
         var lp = productById(l.id);
         var cx = x0 + li * step;
@@ -2259,7 +2372,7 @@
         disc.circle(cx, cy, r).stroke({ width: 3, color: done ? C.green : mix(lp.accent, C.ink, 0.45) });
         box.addChild(disc);
 
-        var ic = productIcon(lp, r * 1.5);
+        var ic = productIcon(lp, r * 1.55);
         ic.x = cx; ic.y = cy;
         ic.alpha = done ? 0.55 : 1;
         box.addChild(ic);
@@ -2283,13 +2396,13 @@
         }
       });
 
-      var reward = label('+50%', 13, C.green, '800');
-      reward.anchor.set(1, 0); reward.x = qw - 12; reward.y = 8;
+      var reward = label('+50%', 14, C.green, '800');
+      reward.anchor.set(1, 0.5); reward.x = qw - 14; reward.y = infoY;
       box.addChild(reward);
 
       // настроение подписью: покупателю видно, что он вот-вот уйдёт
       var note = label(moodWord(mood), 12, mood === 'angry' ? C.red : C.inkSoft, '700');
-      note.anchor.set(0, 0.5); note.x = 100; note.y = qh - 44;
+      note.anchor.set(0, 0.5); note.x = 100; note.y = infoY;
       box.addChild(note);
 
       var by = qh - 28, bx = 100, bw = qw - bx - 14;
@@ -2304,9 +2417,9 @@
       pt.anchor.set(0.5); pt.x = bx + bw / 2; pt.y = by + 10;
       box.addChild(pt);
 
-      if (c.cheer > 0) box.addChild(emotionBubble(90, 20, 'cheer'));
-      else if (mood === 'angry') box.addChild(emotionBubble(90, 20, 'angry'));
-      else if (mood === 'worry') box.addChild(emotionBubble(90, 20, 'worry'));
+      if (c.cheer > 0) box.addChild(emotionBubble(82, 18, 'cheer'));
+      else if (mood === 'angry') box.addChild(emotionBubble(82, 18, 'angry'));
+      else if (mood === 'worry') box.addChild(emotionBubble(82, 18, 'worry'));
 
       layers.queue.addChild(box);
     }
@@ -2627,6 +2740,19 @@
     layers.fx.addChild(t);
     anim(950, function (p) { t.y = y - 70 * easeOut(p); t.alpha = 1 - p * p; },
       function () { t.destroy(); });
+  }
+
+  // Страховка от залипших спрайтов: эффект живёт не дольше пары секунд, а
+  // призрак перетаскивания исчезает вместе с самим жестом.
+  function sweepFx() {
+    if (!layers.fx) return;
+    var now = performance.now();
+    for (var i = layers.fx.children.length - 1; i >= 0; i--) {
+      var n = layers.fx.children[i];
+      if (n.__drag) { if (!drag) n.destroy(); continue; }
+      if (n.__born == null) n.__born = now;
+      else if (now - n.__born > 2500) n.destroy();
+    }
   }
 
   function toast(msg) {
@@ -2961,6 +3087,15 @@
       app.stage.on('pointermove', moveDrag);
       app.stage.on('pointerup', endDrag);
       app.stage.on('pointerupoutside', endDrag);
+      app.stage.on('pointercancel', cancelDrag);
+      // Браузер может не отдать pointerup (системный жест, уход со страницы) —
+      // страхуемся окном, иначе товар остаётся висеть над залом.
+      window.addEventListener('pointerup', function () { if (drag) endDrag(null); });
+      window.addEventListener('pointercancel', cancelDrag);
+      window.addEventListener('blur', cancelDrag);
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) cancelDrag();
+      });
 
       var unlock = function () { if (window.ShopAudio) window.ShopAudio.unlock(); };
       window.addEventListener('pointerdown', unlock, { once: true });
@@ -2973,9 +3108,14 @@
           var a = anims[i];
           a.t += ticker.deltaMS;
           var p = Math.min(a.t / a.d, 1);
-          a.step(p);
-          if (p >= 1) { if (a.done) a.done(); anims.splice(i, 1); }
+          var broken = false;
+          try { a.step(p); } catch (err) { broken = true; }
+          if (p >= 1 || broken) {                 // упавший шаг не должен морозить остальные
+            anims.splice(i, 1);
+            if (a.done) { try { a.done(); } catch (err2) {} }
+          }
         }
+        sweepFx();
         for (var k = 0; k < beltNodes.length; k++) {
           var n = beltNodes[k];
           if (n.baseY != null && n !== selectedNode) n.y = n.baseY + Math.sin(clock * 1.8 + n.phase) * 3;
@@ -3000,6 +3140,13 @@
         section: function (id) { return productById(id).section; },
         products: function () { return PRODUCTS.map(function (x) { return x.id; }); },
         build: BUILD, metaResetFrom: function () { return metaResetFrom; },
+        // для смоука: сколько спрайтов эффектов висит и где лежит коробка завоза
+        fxCount: function () { return layers.fx ? layers.fx.children.length : 0; },
+        beltPos: function (i) { return beltSlotPos(i); },
+        pagePoint: function (pt) {
+          var r = app.canvas.getBoundingClientRect(), k = r.width / app.renderer.width;
+          return { x: r.left + pt.x * root.scale.x * k, y: r.top + pt.y * root.scale.y * k };
+        },
         // лист типажей для визуальной проверки набора покупателей
         faceSheet: function () {
           overlay.removeChildren(); overlay.visible = true;
