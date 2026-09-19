@@ -46,10 +46,16 @@
   ];
 
   // План смены — обслуженные покупатели, а не просто проданные тройки.
+  // crates = 3 × goal + запас: завоз соразмерен тому, что реально закажут,
+  // иначе лишний товар оседает на полке и уходит в просрочку.
+  // Завоз считается от спроса: три товара на каждый заказ плана, плюс полка
+  // (часть завоза всегда лежит собранной наполовину) и небольшой запас на
+  // просрочку. Раньше завоз был вдвое больше спроса, и лишнее просто портилось.
+  var SPARE = 6;               // запас сверх плана и полки, в штуках
   var SHIFTS = [
-    { types: 6,  crates: 27, goal: 4, patience: 14, visible: 5, lives: 4, sale: false },
-    { types: 9,  crates: 39, goal: 6, patience: 18, visible: 6, lives: 3, sale: false },
-    { types: 10, crates: 48, goal: 7, patience: 22, visible: 6, lives: 3, sale: true  }
+    { types: 6,  crates: 30, goal: 4, patience: 14, visible: 5, lives: 4, sale: false },
+    { types: 9,  crates: 36, goal: 6, patience: 18, visible: 6, lives: 3, sale: false },
+    { types: 10, crates: 39, goal: 7, patience: 22, visible: 6, lives: 3, sale: true  }
   ];
 
   var QUEUE_SIZE = 3;
@@ -66,14 +72,14 @@
   /* ------------------------------------------------------------- палитра */
 
   var C = {
-    wallTop: 0xF7FAFC, wallBot: 0xD9E2E8, floor: 0xD9D3C6,
-    steel: 0x92A0AA, steelDark: 0x5C6872, steelLight: 0xC4CFD7, shelf: 0xEDF2F5,
-    ink: 0x1B2731, inkSoft: 0x5E6D78,
-    panel: 0xFFFFFF, gold: 0xF5A623,
-    green: 0x18A54B, red: 0xE23B2E,
-    sign: 0x123B63, signAlt: 0xFFFFFF,
-    hudBg: 0x16202A, hudInk: 0xEAF1F6, hudInkSoft: 0x93A3AE, hudTrack: 0x2B3A47,
-    cardboard: 0xC98D4E, cardboardLight: 0xE6B87A, chill: 0xDCEEF7
+    wallTop: 0xFFF4E4, wallBot: 0xEFD9BB, floor: 0xB9793F,
+    steel: 0xB9A48C, steelDark: 0x7A6448, steelLight: 0xDFCFB6, shelf: 0xF8EDDB,
+    ink: 0x2A1E16, inkSoft: 0x6E5B47,
+    panel: 0xFFFBF2, gold: 0xF2A21B,
+    green: 0x27A34A, red: 0xE0402E,
+    sign: 0x9E3325, signAlt: 0xFFE9C4,
+    hudBg: 0x241A14, hudInk: 0xF6ECDC, hudInkSoft: 0xB09A82, hudTrack: 0x3B2A20,
+    cardboard: 0xC98D4E, cardboardLight: 0xE6B87A, chill: 0xE2F0F8
   };
 
   /* -------------------------------------------------------------- утилиты */
@@ -117,6 +123,9 @@
     { id: 'cash',    name: 'Касса', max: 2, prices: [1800, 4000],
       effect: function (l) { return '+' + l + ' заряд бустерам'; },
       hint: 'Чаще пользуйтесь бустерами смены' },
+    { id: 'ads',     name: 'Реклама', max: 2, prices: [1600, 3600],
+      effect: function (l) { return '+' + l + ' покупатель в очереди'; },
+      hint: 'Листовки приводят больше людей' },
     { id: 'sign',    name: 'Вывеска', max: 3, prices: [2000, 4500, 9000],
       effect: function (l) { return '+' + (l * 5) + ' к терпению покупателей'; },
       hint: 'Покупатели ждут дольше' }
@@ -128,7 +137,7 @@
 
   function defaultMeta() {
     return { build: BUILD, wallet: 0, shiftIdx: 0, streak: 0, total: 0,
-             up: { counter: 0, fridge: 0, cart: 0, cash: 0, sign: 0 } };
+             up: { counter: 0, fridge: 0, cart: 0, cash: 0, ads: 0, sign: 0 } };
   }
 
   function loadMeta() {
@@ -391,6 +400,7 @@
     return true;
   }
 
+  function queueSize() { return QUEUE_SIZE + meta.up.ads; }
   function fridgeSize() { return FRIDGE_BASE + meta.up.fridge; }
   function zoneSlots(zone) { return zone.slots + (zone.id === 'grocery' ? meta.up.counter : 0); }
   function traySize() {
@@ -426,12 +436,11 @@
 
   function shiftConfig(idx) {
     if (idx < SHIFTS.length) return SHIFTS[idx];
-    var crates = 48 + (idx - 2) * 6;
-    crates -= crates % 3;
+    var goal = 7 + (idx - 2);
     return {
       types: 12,
-      crates: crates,
-      goal: Math.min(7 + (idx - 2), Math.floor(crates / 3) - 4),
+      crates: goal * 3 + 12 + SPARE,         // план + полка + запас на просрочку
+      goal: goal,
       patience: Math.max(16, 22 - Math.floor((idx - 2) / 2)),
       visible: 6,
       lives: 3,
@@ -508,7 +517,7 @@
     bestCombo = 0;
     shownRevenue = 0;
     hiddenSlots = {};
-    for (var i = 0; i < QUEUE_SIZE; i++) spawnCustomer();
+    for (var i = 0; i < queueSize(); i++) spawnCustomer();
     pullDemanded();
     shiftStat = { started: Date.now(), moves: 0, home: 0, denyFull: 0, denyZone: 0, spoiled: 0, writeOff: 0 };
     logEvent('shift_start', { shift: shiftIdx + 1, goal: cfg.goal, tray: state.tray.length,
@@ -579,7 +588,15 @@
       var free = cand.filter(function (id) { return !taken[id]; });   // чужой заказ дублируем в последнюю очередь
       if (free.length) cand = free;
       if (!cand.length) return null;
-      var id = cand[Math.floor(state.rnd() * cand.length)];
+      // выбор взвешен по остатку на завозе: спрос идёт за поставкой, и товар,
+      // которого привезли много, не оседает на полке до просрочки
+      var total = 0;
+      cand.forEach(function (x) { total += left[x]; });
+      var roll = state.rnd() * total, id = cand[cand.length - 1];
+      for (var j = 0; j < cand.length; j++) {
+        roll -= left[cand[j]];
+        if (roll <= 0) { id = cand[j]; break; }
+      }
       used[id] = true;
       left[id] -= need;
       out.push({ id: id, n: need });
@@ -969,6 +986,12 @@
 
   var HUD_H = 150, SIGN_Y = 150, SIGN_H = 58;
   var QUEUE_Y = 236, QUEUE_W = 208, QUEUE_H = 208, QUEUE_GAP = 24, QUEUE_X0 = 24;
+  // с рекламой мест в очереди больше, поэтому карточка считается от их числа
+  function queueGap() { return queueSize() > 3 ? 14 : QUEUE_GAP; }
+  function queueW() {
+    var n = queueSize();
+    return Math.floor((W - QUEUE_X0 * 2 - queueGap() * (n - 1)) / n);
+  }
   var TRAY_PANEL_Y = 486, TRAY_Y = 578, TRAY_H = 88, TRAY_GAP = 6, ZONE_GAP = 16;
   var BELT_PANEL_Y = 790, BELT_Y = 832, BELT_H = 138, BELT_GAP = 10;
   var FRIDGE_Y = 1006, FRIDGE_SLOT_W = 108, FRIDGE_SLOT_H = 84;
@@ -1009,7 +1032,7 @@
   }
   function fridgeSlotPos(i) { return { x: PANEL_X + 188 + i * (fridgeSlotW() + BELT_GAP), y: FRIDGE_Y }; }
 
-  function queueX(i) { return QUEUE_X0 + i * (QUEUE_W + QUEUE_GAP); }
+  function queueX(i) { return QUEUE_X0 + i * (queueW() + queueGap()); }
 
   /* -------------------------------------------------------- примитивы сцены */
 
@@ -1180,17 +1203,27 @@
   }
 
   // Лицо покупателя рисуется примитивами: настроение = сколько осталось терпения.
-  // Покупатели: восемь типажей — дети, молодые, взрослые и пожилые. Рисуются
-  // примитивами, как и товар: ноль ассетов, но лицо, а не смайлик.
+  // Покупатели: восемь типажей разных возрастов — двое детей, двое молодых,
+  // двое взрослых и двое пожилых. Рисуются примитивами (ассетов по-прежнему
+  // ноль), но с проработкой: светотень на лице, блик в волосах, ресницы, губы,
+  // воротник одежды, морщинки у пожилых.
   var PEOPLE = [
-    { id: 'boy',     skin: 0xFFD2A4, hair: 0x6B4A2A, cloth: 0x3E9BD8, style: 'cap',    kid: true },
-    { id: 'girl',    skin: 0xFFDBBA, hair: 0xC2632A, cloth: 0xE5679B, style: 'tails',  kid: true },
-    { id: 'lady',    skin: 0xFFD6AE, hair: 0xE9C35A, cloth: 0xD8464A, style: 'long',   earring: true },
-    { id: 'guy',     skin: 0xE2A97A, hair: 0x2F2A26, cloth: 0x41B08A, style: 'short' },
-    { id: 'woman',   skin: 0xC98B5E, hair: 0x3B2A1E, cloth: 0x8C6BD6, style: 'bob' },
-    { id: 'man',     skin: 0xF0BB8B, hair: 0x4A3520, cloth: 0x4A6FB8, style: 'part',   beard: 'stubble' },
-    { id: 'granny',  skin: 0xF6CFAB, hair: 0xDADCE2, cloth: 0xC96FA0, style: 'bun',    glasses: true },
-    { id: 'grandpa', skin: 0xE9BA8E, hair: 0xD2D5DB, cloth: 0x6E8494, style: 'bald',   glasses: true, beard: 'moustache' }
+    { id: 'boy',     age: 'kid',   skin: 0xFFD3A8, hair: 0x7A4B24, cloth: 0x2F8FD6,
+      collar: 'hoodie',   style: 'cap',      freckles: true },
+    { id: 'girl',    age: 'kid',   skin: 0xFFDCBC, hair: 0xC4642A, cloth: 0xE8639C,
+      collar: 'tee',      style: 'tails',    lashes: true, freckles: true },
+    { id: 'lady',    age: 'young', skin: 0xFFD7B0, hair: 0xEFC65C, cloth: 0xD8394A,
+      collar: 'dress',    style: 'long',     lashes: true, earring: true, lips: 0xD8446A },
+    { id: 'guy',     age: 'young', skin: 0xE0A87A, hair: 0x241F1B, cloth: 0x2FA07E,
+      collar: 'tee',      style: 'undercut' },
+    { id: 'woman',   age: 'adult', skin: 0xC98B5E, hair: 0x2E211A, cloth: 0x7C5BD0,
+      collar: 'shirt',    style: 'bob',      lashes: true, lips: 0xB4485F },
+    { id: 'man',     age: 'adult', skin: 0xEFB889, hair: 0x3F2B18, cloth: 0x2B4C86,
+      collar: 'tie',      style: 'part',     beard: 'stubble' },
+    { id: 'granny',  age: 'old',   skin: 0xF3CBA6, hair: 0xDCDEE4, cloth: 0xC26C9E,
+      collar: 'cardigan', style: 'bun',      glasses: true, wrinkles: true, lips: 0xC2687E },
+    { id: 'grandpa', age: 'old',   skin: 0xE7B78B, hair: 0xCFD2D8, cloth: 0x5E7385,
+      collar: 'shirt',    style: 'bald',     glasses: true, beard: 'moustache', wrinkles: true }
   ];
 
   function personById(idx) {
@@ -1198,139 +1231,239 @@
     return PEOPLE[((idx | 0) % n + n) % n];
   }
 
-  // r — радиус головы; контейнер отцентрован по лицу, как раньше faceGraphic.
+  // r — радиус головы; контейнер отцентрован по лицу.
   function personGraphic(r, idx, mood) {
     var p = personById(idx);
-    var k = p.kid ? r * 0.94 : r;
-    var lw = Math.max(2.5, k * 0.13);
+    var kid = p.age === 'kid', old = p.age === 'old';
+    var k = r * (kid ? 0.95 : 1);
+    var lw = Math.max(2.2, k * 0.115);
+    var ink = C.ink;
+    var shade = mix(p.skin, ink, 0.2);
+    var hairDark = mix(p.hair, 0x000000, 0.32);
+    var hairLight = mix(p.hair, 0xFFFFFF, 0.38);
+    var clothDark = mix(p.cloth, 0x000000, 0.25);
+    var clothLight = mix(p.cloth, 0xFFFFFF, 0.28);
+
     var c = new PIXI.Container();
     var back = new PIXI.Graphics();
-    var g = new PIXI.Graphics();
+    var body = new PIXI.Graphics();
+    var head = new PIXI.Graphics();
     var top = new PIXI.Graphics();
-    c.addChild(back, g, top);
+    c.addChild(back, body, head, top);
 
-    var hairDark = mix(p.hair, 0x000000, 0.25);
+    var faceRx = kid ? 1.02 : 1, faceRy = kid ? 1.0 : (old ? 1.12 : 1.08);
 
-    // затылок и длинные волосы — за головой
+    /* ---- волосы за головой --------------------------------------------- */
     if (p.style === 'long') {
-      back.ellipse(0, k * 0.15, k * 1.22, k * 1.35).fill(p.hair);
-      back.ellipse(0, k * 0.15, k * 1.22, k * 1.35).stroke({ width: lw, color: C.ink });
+      back.ellipse(0, k * 0.3, k * 1.3, k * 1.5).fill(p.hair);
+      back.ellipse(0, k * 0.3, k * 1.3, k * 1.5).stroke({ width: lw, color: ink });
+      back.ellipse(-k * 0.75, k * 0.1, k * 0.2, k * 0.6).fill({ color: hairLight, alpha: 0.45 });
     } else if (p.style === 'bob') {
-      back.ellipse(0, k * 0.05, k * 1.18, k * 1.2).fill(p.hair);
-      back.ellipse(0, k * 0.05, k * 1.18, k * 1.2).stroke({ width: lw, color: C.ink });
+      back.ellipse(0, k * 0.12, k * 1.24, k * 1.26).fill(p.hair);
+      back.ellipse(0, k * 0.12, k * 1.24, k * 1.26).stroke({ width: lw, color: ink });
     } else if (p.style === 'tails') {
       [-1, 1].forEach(function (s) {
-        back.circle(s * k * 1.05, k * 0.25, k * 0.33).fill(p.hair);
-        back.circle(s * k * 1.05, k * 0.25, k * 0.33).stroke({ width: lw, color: C.ink });
+        back.circle(s * k * 1.08, k * 0.3, k * 0.34).fill(p.hair);
+        back.circle(s * k * 1.08, k * 0.3, k * 0.34).stroke({ width: lw, color: ink });
+        back.circle(s * k * 1.14, k * 0.2, k * 0.12).fill({ color: hairLight, alpha: 0.5 });
       });
     } else if (p.style === 'bun') {
-      back.circle(0, -k * 1.12, k * 0.34).fill(p.hair);
-      back.circle(0, -k * 1.12, k * 0.34).stroke({ width: lw, color: C.ink });
+      back.circle(0, -k * 1.32, k * 0.34).fill(p.hair);
+      back.circle(0, -k * 1.32, k * 0.34).stroke({ width: lw, color: ink });
+      back.circle(-k * 0.12, -k * 1.42, k * 0.12).fill({ color: 0xFFFFFF, alpha: 0.45 });
+      back.ellipse(0, -k * 0.5, k * 1.12, k * 0.75).fill(p.hair);       // зачёс назад
     }
 
-    // плечи и шея
-    g.roundRect(-k * 1.18, k * 0.92, k * 2.36, k * 0.9, k * 0.34).fill(p.cloth);
-    g.roundRect(-k * 1.18, k * 0.92, k * 2.36, k * 0.9, k * 0.34).stroke({ width: lw, color: C.ink });
-    g.rect(-k * 0.26, k * 0.62, k * 0.52, k * 0.42).fill(mix(p.skin, C.ink, 0.12));
+    /* ---- плечи, воротник, шея ------------------------------------------ */
+    body.roundRect(-k * 1.3, k * 0.95, k * 2.6, k * 1.0, k * 0.36).fill(p.cloth);
+    body.roundRect(-k * 1.3, k * 0.95, k * 2.6, k * 1.0, k * 0.36).stroke({ width: lw, color: ink });
+    body.roundRect(-k * 1.3, k * 0.95, k * 1.0, k * 1.0, k * 0.36).fill({ color: clothLight, alpha: 0.35 });
+    body.rect(-k * 0.3, k * 0.6, k * 0.6, k * 0.5).fill(p.skin);
+    body.ellipse(0, k * 0.72, k * 0.34, k * 0.2).fill({ color: shade, alpha: 0.75 });
 
-    // голова
-    g.ellipse(0, 0, k, k * 1.06).fill(p.skin);
-    g.ellipse(0, 0, k, k * 1.06).stroke({ width: lw, color: C.ink });
+    if (p.collar === 'tie') {
+      body.moveTo(-k * 0.44, k * 0.95).lineTo(0, k * 1.5).lineTo(k * 0.44, k * 0.95).fill(0xF2F5F8);
+      body.moveTo(-k * 0.44, k * 0.95).lineTo(0, k * 1.5).lineTo(k * 0.44, k * 0.95).stroke({ width: lw * 0.8, color: ink });
+      body.moveTo(-k * 0.13, k * 1.06).lineTo(k * 0.13, k * 1.06).lineTo(k * 0.2, k * 1.95)
+          .lineTo(-k * 0.2, k * 1.95).closePath().fill(0xC8402F);
+      body.moveTo(-k * 0.13, k * 1.06).lineTo(k * 0.13, k * 1.06).lineTo(k * 0.2, k * 1.95)
+          .lineTo(-k * 0.2, k * 1.95).closePath().stroke({ width: lw * 0.7, color: ink });
+    } else if (p.collar === 'shirt') {
+      [-1, 1].forEach(function (s) {
+        body.moveTo(s * k * 0.1, k * 1.0).lineTo(s * k * 0.62, k * 1.05).lineTo(s * k * 0.16, k * 1.55)
+            .closePath().fill(clothLight);
+        body.moveTo(s * k * 0.1, k * 1.0).lineTo(s * k * 0.62, k * 1.05).lineTo(s * k * 0.16, k * 1.55)
+            .closePath().stroke({ width: lw * 0.7, color: ink });
+      });
+    } else if (p.collar === 'dress') {
+      body.moveTo(-k * 0.5, k * 0.98).quadraticCurveTo(0, k * 1.5, k * 0.5, k * 0.98).fill(p.skin);
+      body.moveTo(-k * 0.5, k * 0.98).quadraticCurveTo(0, k * 1.5, k * 0.5, k * 0.98)
+          .stroke({ width: lw * 0.7, color: ink });
+    } else if (p.collar === 'hoodie') {
+      body.moveTo(-k * 0.6, k * 0.96).quadraticCurveTo(0, k * 1.44, k * 0.6, k * 0.96)
+          .stroke({ width: lw * 1.4, color: clothDark, cap: 'round' });
+      [-1, 1].forEach(function (s) {
+        body.moveTo(s * k * 0.2, k * 1.24).lineTo(s * k * 0.26, k * 1.8)
+            .stroke({ width: lw * 0.7, color: 0xF2F5F8, cap: 'round' });
+      });
+    } else if (p.collar === 'cardigan') {
+      [-1, 1].forEach(function (s) {
+        body.moveTo(s * k * 0.12, k * 0.98).lineTo(s * k * 0.7, k * 1.1).lineTo(s * k * 0.28, k * 1.95)
+            .closePath().fill(clothDark);
+      });
+      body.circle(0, k * 1.45, k * 0.1).fill(0xF7E7C8);
+    } else {
+      body.moveTo(-k * 0.42, k * 0.96).quadraticCurveTo(0, k * 1.32, k * 0.42, k * 0.96)
+          .stroke({ width: lw * 1.2, color: clothDark, cap: 'round' });
+    }
+
+    /* ---- лицо ---------------------------------------------------------- */
+    head.ellipse(0, 0, k * faceRx, k * faceRy).fill(p.skin);
+    head.ellipse(k * 0.42, k * 0.05, k * 0.62, k * faceRy * 0.9).fill({ color: shade, alpha: 0.17 });
+    head.ellipse(0, 0, k * faceRx, k * faceRy).stroke({ width: lw, color: ink });
     [-1, 1].forEach(function (s) {
-      g.circle(s * k * 0.97, k * 0.08, k * 0.17).fill(p.skin);
-      g.circle(s * k * 0.97, k * 0.08, k * 0.17).stroke({ width: lw * 0.8, color: C.ink });
+      head.circle(s * k * 0.99, k * 0.1, k * 0.18).fill(p.skin);
+      head.circle(s * k * 0.99, k * 0.1, k * 0.18).stroke({ width: lw * 0.8, color: ink });
+      head.moveTo(s * k * 1.02, k * 0.04).quadraticCurveTo(s * k * 0.94, k * 0.12, s * k * 1.0, k * 0.18)
+          .stroke({ width: lw * 0.55, color: shade, alpha: 0.8 });
     });
 
-    // причёска поверх головы
+    /* ---- причёска ------------------------------------------------------ */
     if (p.style === 'cap') {
-      top.ellipse(0, -k * 0.92, k * 0.98, k * 0.48).fill(p.cloth);
-      top.ellipse(0, -k * 0.92, k * 0.98, k * 0.48).stroke({ width: lw, color: C.ink });
-      top.ellipse(-k * 0.5, -k * 0.72, k * 0.9, k * 0.17).fill(mix(p.cloth, 0x000000, 0.25));
-      top.ellipse(-k * 0.5, -k * 0.72, k * 0.9, k * 0.17).stroke({ width: lw * 0.8, color: C.ink });
-      top.circle(0, -k * 1.3, k * 0.1).fill(mix(p.cloth, 0xFFFFFF, 0.4));
+      top.ellipse(0, -k * 0.62, k * 1.0, k * 0.4).fill(p.hair);        // чёлка из-под козырька
+      top.ellipse(0, -k * 0.95, k * 1.0, k * 0.5).fill(p.cloth);
+      top.ellipse(0, -k * 0.95, k * 1.0, k * 0.5).stroke({ width: lw, color: ink });
+      top.ellipse(-k * 0.3, -k * 1.1, k * 0.42, k * 0.16).fill({ color: clothLight, alpha: 0.6 });
+      top.ellipse(-k * 0.52, -k * 0.74, k * 0.9, k * 0.17).fill(clothDark);
+      top.ellipse(-k * 0.52, -k * 0.74, k * 0.9, k * 0.17).stroke({ width: lw * 0.8, color: ink });
+      top.circle(0, -k * 1.33, k * 0.1).fill(clothLight);
     } else if (p.style === 'bald') {
+      back.ellipse(0, -k * 0.34, k * 1.14, k * 0.86).fill(p.hair);     // венчик за головой
+      back.ellipse(0, -k * 0.34, k * 1.14, k * 0.86).stroke({ width: lw, color: ink });
       [-1, 1].forEach(function (s) {
-        top.ellipse(s * k * 0.78, -k * 0.35, k * 0.3, k * 0.42).fill(p.hair);
-        top.ellipse(s * k * 0.78, -k * 0.35, k * 0.3, k * 0.42).stroke({ width: lw * 0.8, color: C.ink });
+        top.ellipse(s * k * 0.9, -k * 0.2, k * 0.24, k * 0.46).fill(p.hair);
+        top.ellipse(s * k * 0.9, -k * 0.2, k * 0.24, k * 0.46).stroke({ width: lw * 0.8, color: ink });
       });
+      top.ellipse(-k * 0.28, -k * 0.86, k * 0.34, k * 0.12).fill({ color: 0xFFFFFF, alpha: 0.4 });
     } else {
-      // шапка волос закрывает макушку и виски, но не лоб
-      top.ellipse(0, -k * 0.95, k * 1.02, k * 0.52).fill(p.hair);
-      top.ellipse(0, -k * 0.95, k * 1.02, k * 0.52).stroke({ width: lw, color: C.ink });
+      var hy = p.style === 'undercut' ? -k * 1.0 : (p.style === 'bun' ? -k * 1.02 : -k * 0.95);
+      var hrx = p.style === 'undercut' ? k * 0.96 : k * 1.04;
+      var hry = p.style === 'bun' ? k * 0.44 : k * 0.54;
+      top.ellipse(0, hy, hrx, hry).fill(p.hair);
+      top.ellipse(0, hy, hrx, hry).stroke({ width: lw, color: ink });
+      top.ellipse(-k * 0.34, hy - k * 0.08, k * 0.42, k * 0.14).fill({ color: hairLight, alpha: 0.55 });
       if (p.style === 'part') {
-        top.moveTo(-k * 0.2, -k * 1.2).quadraticCurveTo(k * 0.1, -k * 0.85, k * 0.55, -k * 0.75)
+        top.moveTo(-k * 0.22, -k * 1.42).quadraticCurveTo(k * 0.12, -k * 1.0, k * 0.6, -k * 0.86)
            .stroke({ width: lw * 0.8, color: hairDark, cap: 'round' });
+      }
+      if (p.style === 'undercut') {
+        [-1, 1].forEach(function (s) {
+          top.ellipse(s * k * 0.86, -k * 0.62, k * 0.18, k * 0.26).fill(hairDark);
+        });
       }
       if (p.style === 'long' || p.style === 'bob') {
         [-1, 1].forEach(function (s) {
-          top.ellipse(s * k * 0.92, -k * 0.3, k * 0.26, k * 0.5).fill(p.hair);
-          top.ellipse(s * k * 0.92, -k * 0.3, k * 0.26, k * 0.5).stroke({ width: lw * 0.8, color: C.ink });
+          top.ellipse(s * k * 0.95, -k * 0.3, k * 0.28, k * 0.55).fill(p.hair);
+          top.ellipse(s * k * 0.95, -k * 0.3, k * 0.28, k * 0.55).stroke({ width: lw * 0.8, color: ink });
         });
       }
     }
-    if (p.style === 'tails') {
-      top.circle(-k * 1.05, -k * 0.1, k * 0.16).fill(0xFFFFFF);
-      top.circle(k * 1.05, -k * 0.1, k * 0.16).fill(0xFFFFFF);
-    }
 
-    // глаза: белок, радужка, зрачок и блик
-    var eyeY = k * 0.02, eyeX = k * 0.36, eyeR = k * (p.kid ? 0.26 : 0.22);
+    /* ---- глаза --------------------------------------------------------- */
+    var eyeY = k * 0.04, eyeX = k * 0.37, eyeR = k * (kid ? 0.25 : 0.21);
     [-1, 1].forEach(function (s) {
-      top.ellipse(s * eyeX, eyeY, eyeR * 0.78, eyeR * 0.92).fill(0xFFFFFF);
-      top.circle(s * eyeX, eyeY + eyeR * 0.08, eyeR * 0.5).fill(mix(p.hair, 0x2A4A6A, 0.55));
-      top.circle(s * eyeX, eyeY + eyeR * 0.08, eyeR * 0.26).fill(C.ink);
-      top.circle(s * eyeX - eyeR * 0.24, eyeY - eyeR * 0.28, eyeR * 0.18).fill(0xFFFFFF);
-      // верхнее веко даёт взгляд, а не «пуговицу»
-      top.moveTo(s * (eyeX - eyeR * 0.78), eyeY - eyeR * 0.5)
-         .quadraticCurveTo(s * eyeX, eyeY - eyeR * 1.15, s * (eyeX + eyeR * 0.78), eyeY - eyeR * 0.5)
-         .stroke({ width: lw * 0.7, color: C.ink, cap: 'round' });
+      top.ellipse(s * eyeX, eyeY, eyeR * 0.8, eyeR * 0.94).fill(0xFFFFFF);
+      top.ellipse(s * eyeX, eyeY, eyeR * 0.8, eyeR * 0.94).fill({ color: shade, alpha: 0.12 });
+      top.circle(s * eyeX, eyeY + eyeR * 0.08, eyeR * 0.52).fill(mix(p.hair, 0x2E6B9E, 0.55));
+      top.circle(s * eyeX, eyeY + eyeR * 0.08, eyeR * 0.3).fill(0x1A1512);
+      top.circle(s * eyeX - eyeR * 0.24, eyeY - eyeR * 0.3, eyeR * 0.19).fill(0xFFFFFF);
+      top.circle(s * eyeX + eyeR * 0.22, eyeY + eyeR * 0.3, eyeR * 0.09).fill({ color: 0xFFFFFF, alpha: 0.7 });
+      top.moveTo(s * (eyeX - eyeR * 0.82), eyeY - eyeR * 0.45)
+         .quadraticCurveTo(s * eyeX, eyeY - eyeR * 1.2, s * (eyeX + eyeR * 0.82), eyeY - eyeR * 0.45)
+         .stroke({ width: lw * (p.lashes ? 0.95 : 0.7), color: ink, cap: 'round' });
+      if (p.lashes) {
+        top.moveTo(s * (eyeX + eyeR * 0.78), eyeY - eyeR * 0.5)
+           .lineTo(s * (eyeX + eyeR * 1.05), eyeY - eyeR * 0.72)
+           .stroke({ width: lw * 0.5, color: ink, cap: 'round' });
+      }
     });
 
-    // брови задают настроение вместе со ртом
-    var browY = eyeY - eyeR * 1.85;
-    var inner = mood === 'sad' ? eyeR * 0.5 : (mood === 'wait' ? 0 : -eyeR * 0.28);
+    /* ---- брови: настроение --------------------------------------------- */
+    var browY = eyeY - eyeR * 1.9;
+    var inner = mood === 'sad' ? eyeR * 0.55 : (mood === 'wait' ? 0 : -eyeR * 0.3);
     [-1, 1].forEach(function (s) {
-      top.moveTo(s * (eyeX - eyeR * 0.85), browY + (mood === 'sad' ? -eyeR * 0.2 : 0))
-         .quadraticCurveTo(s * eyeX, browY - eyeR * 0.35, s * (eyeX + eyeR * 0.85), browY + inner)
-         .stroke({ width: lw * 0.85, color: hairDark, cap: 'round' });
+      top.moveTo(s * (eyeX - eyeR * 0.9), browY + (mood === 'sad' ? -eyeR * 0.22 : 0))
+         .quadraticCurveTo(s * eyeX, browY - eyeR * 0.4, s * (eyeX + eyeR * 0.9), browY + inner)
+         .stroke({ width: lw * (old ? 0.75 : 0.95), color: old ? mix(p.hair, ink, 0.35) : hairDark, cap: 'round' });
     });
 
-    // нос
-    top.moveTo(0, eyeY + eyeR * 0.5).quadraticCurveTo(k * 0.12, k * 0.36, -k * 0.04, k * 0.38)
-       .stroke({ width: lw * 0.7, color: mix(p.skin, C.ink, 0.45), cap: 'round' });
+    /* ---- нос и рот ------------------------------------------------------ */
+    top.moveTo(k * 0.02, eyeY + eyeR * 0.7).quadraticCurveTo(k * 0.16, k * 0.38, -k * 0.02, k * 0.4)
+       .stroke({ width: lw * 0.7, color: shade, cap: 'round' });
+    top.ellipse(-k * 0.09, k * 0.42, k * 0.05, k * 0.03).fill({ color: shade, alpha: 0.7 });
 
-    // рот
+    var lip = p.lips || 0x9B4034;
     if (mood === 'sad') {
-      top.moveTo(-k * 0.3, k * 0.72).quadraticCurveTo(0, k * 0.5, k * 0.3, k * 0.72)
-         .stroke({ width: lw * 0.9, color: 0x9B3A2E, cap: 'round' });
+      top.moveTo(-k * 0.28, k * 0.76).quadraticCurveTo(0, k * 0.54, k * 0.28, k * 0.76)
+         .stroke({ width: lw * 0.95, color: lip, cap: 'round' });
     } else if (mood === 'wait') {
-      top.moveTo(-k * 0.26, k * 0.62).lineTo(k * 0.26, k * 0.62)
-         .stroke({ width: lw * 0.9, color: 0x9B3A2E, cap: 'round' });
+      top.moveTo(-k * 0.24, k * 0.66).quadraticCurveTo(0, k * 0.72, k * 0.24, k * 0.66)
+         .stroke({ width: lw * 0.95, color: lip, cap: 'round' });
     } else {
-      top.moveTo(-k * 0.3, k * 0.56).quadraticCurveTo(0, k * 0.92, k * 0.3, k * 0.56)
-         .stroke({ width: lw * 0.95, color: 0x9B3A2E, cap: 'round' });
+      top.moveTo(-k * 0.3, k * 0.58).quadraticCurveTo(0, k * 0.96, k * 0.3, k * 0.58)
+         .quadraticCurveTo(0, k * 0.72, -k * 0.3, k * 0.58).fill(mix(lip, 0x000000, 0.25));
+      top.moveTo(-k * 0.24, k * 0.63).quadraticCurveTo(0, k * 0.72, k * 0.24, k * 0.63)
+         .stroke({ width: lw * 0.5, color: 0xFFFFFF, alpha: 0.75 });
+      top.moveTo(-k * 0.3, k * 0.58).quadraticCurveTo(0, k * 0.96, k * 0.3, k * 0.58)
+         .stroke({ width: lw * 0.7, color: ink, cap: 'round' });
     }
 
+    /* ---- возрастные и прочие детали ------------------------------------- */
     if (p.beard === 'moustache') {
-      top.ellipse(0, k * 0.4, k * 0.32, k * 0.1).fill(p.hair);
-      top.ellipse(0, k * 0.4, k * 0.32, k * 0.1).stroke({ width: lw * 0.5, color: C.ink, alpha: 0.45 });
+      top.ellipse(0, k * 0.45, k * 0.34, k * 0.11).fill(p.hair);
+      top.ellipse(0, k * 0.45, k * 0.34, k * 0.11).stroke({ width: lw * 0.5, color: ink, alpha: 0.5 });
     } else if (p.beard === 'stubble') {
-      top.ellipse(0, k * 0.62, k * 0.66, k * 0.42).fill({ color: hairDark, alpha: 0.22 });
+      top.ellipse(0, k * 0.66, k * 0.7, k * 0.44).fill({ color: hairDark, alpha: 0.2 });
     }
-
+    if (p.wrinkles) {
+      [-1, 1].forEach(function (s) {
+        top.moveTo(s * k * 0.72, eyeY - eyeR * 0.1).lineTo(s * k * 0.86, eyeY - eyeR * 0.5)
+           .stroke({ width: lw * 0.45, color: shade, alpha: 0.8, cap: 'round' });
+        top.moveTo(s * k * 0.72, eyeY + eyeR * 0.3).lineTo(s * k * 0.88, eyeY + eyeR * 0.25)
+           .stroke({ width: lw * 0.45, color: shade, alpha: 0.6, cap: 'round' });
+        top.moveTo(s * k * 0.3, k * 0.4).quadraticCurveTo(s * k * 0.42, k * 0.6, s * k * 0.34, k * 0.74)
+           .stroke({ width: lw * 0.45, color: shade, alpha: 0.7, cap: 'round' });
+      });
+    }
     if (p.glasses) {
       [-1, 1].forEach(function (s) {
-        top.circle(s * eyeX, eyeY, eyeR * 1.25).stroke({ width: lw * 0.8, color: 0x394651 });
+        top.circle(s * eyeX, eyeY, eyeR * 1.32).fill({ color: 0xBFE0F0, alpha: 0.18 });
+        top.circle(s * eyeX, eyeY, eyeR * 1.32).stroke({ width: lw * 0.75, color: 0x37424C });
       });
-      top.moveTo(-eyeX + eyeR * 1.25, eyeY).lineTo(eyeX - eyeR * 1.25, eyeY)
-         .stroke({ width: lw * 0.7, color: 0x394651 });
+      top.moveTo(-eyeX + eyeR * 1.32, eyeY).lineTo(eyeX - eyeR * 1.32, eyeY)
+         .stroke({ width: lw * 0.65, color: 0x37424C });
+      [-1, 1].forEach(function (s) {
+        top.moveTo(s * (eyeX + eyeR * 1.32), eyeY).lineTo(s * k * 1.0, eyeY - eyeR * 0.2)
+           .stroke({ width: lw * 0.6, color: 0x37424C });
+      });
     }
     if (p.earring) {
-      [-1, 1].forEach(function (s) { top.circle(s * k * 0.99, k * 0.26, k * 0.09).fill(C.gold); });
-    }
-    if (p.kid) {
       [-1, 1].forEach(function (s) {
-        top.ellipse(s * k * 0.66, k * 0.34, k * 0.2, k * 0.14).fill({ color: 0xFF6E5A, alpha: 0.35 });
+        top.circle(s * k * 1.0, k * 0.3, k * 0.09).fill(C.gold);
+        top.circle(s * k * 1.0, k * 0.3, k * 0.09).stroke({ width: lw * 0.4, color: ink, alpha: 0.6 });
+      });
+    }
+    if (kid || p.lips) {
+      [-1, 1].forEach(function (s) {
+        top.ellipse(s * k * 0.62, k * 0.34, k * 0.2, k * 0.13).fill({ color: 0xFF7A63, alpha: kid ? 0.34 : 0.22 });
+      });
+    }
+    if (p.freckles) {
+      [-1, 1].forEach(function (s) {
+        [0, 1, 2].forEach(function (j) {
+          top.circle(s * (k * 0.5 + j * k * 0.11), k * 0.26 + (j % 2) * k * 0.07, k * 0.033)
+             .fill({ color: mix(p.skin, 0x8A4B24, 0.55), alpha: 0.8 });
+        });
       });
     }
     return c;
@@ -1345,7 +1478,8 @@
     var bg = new PIXI.Graphics();
     vGradient(bg, 0, 0, W, H, C.wallTop, C.wallBot, 28);
     // потолочные лампы зала: холодная засветка сверху
-    bg.ellipse(W / 2, 30, W * 0.8, 96).fill({ color: 0xFFFFFF, alpha: 0.55 });
+    bg.ellipse(W / 2, 30, W * 0.8, 96).fill({ color: 0xFFF6DF, alpha: 0.75 });
+    bg.ellipse(W / 2, SIGN_Y + 120, W * 0.9, 200).fill({ color: 0xFFE9BE, alpha: 0.22 });
     // дальние стеллажи зала — чуть намеченные вертикали, чтобы был объём помещения
     for (var wx = 16; wx < W; wx += 118) {
       bg.rect(wx, SIGN_Y + 40, 70, 300).fill({ color: C.steel, alpha: 0.09 });
@@ -1353,12 +1487,14 @@
     }
     // пол: светлая плитка с расшивкой по диагонали
     bg.rect(0, 1206, W, H - 1206).fill(C.floor);
-    bg.rect(0, 1206, W, 26).fill({ color: 0xFFFFFF, alpha: 0.18 });
-    bg.rect(0, 1206, W, 7).fill({ color: 0xFFFFFF, alpha: 0.55 });
-    for (var fx2 = -60; fx2 < W + 90; fx2 += 74) {
-      bg.moveTo(fx2, H).lineTo(fx2 + 30, 1213).stroke({ width: 3, color: 0xFFFFFF, alpha: 0.5 });
+    bg.rect(0, 1206, W, 8).fill({ color: 0xFFFFFF, alpha: 0.35 });
+    for (var fy = 1222; fy < H; fy += 26) {                      // доски пола
+      bg.rect(0, fy, W, 3).fill({ color: 0x6E4318, alpha: 0.35 });
     }
-    bg.rect(0, 1206, W, 12).fill({ color: C.steelDark, alpha: 0.12 });
+    for (var fx2 = 40; fx2 < W; fx2 += 132) {                    // стыки досок
+      bg.rect(fx2, 1214, 3, H - 1214).fill({ color: 0x6E4318, alpha: 0.22 });
+    }
+    bg.rect(0, 1206, W, 10).fill({ color: 0x6E4318, alpha: 0.25 });
     root.addChild(bg);
 
     buildHud();
@@ -1481,9 +1617,9 @@
     var y = SIGN_Y - 6, h = SIGN_H - 14;
     g.rect(168, y - 22, 5, 22).fill(C.steelDark);
     g.rect(W - 173, y - 22, 5, 22).fill(C.steelDark);
-    g.roundRect(26, y + 6, W - 52, h, 8).fill({ color: 0x0B1D30, alpha: 0.22 });
+    g.roundRect(26, y + 6, W - 52, h, 8).fill({ color: 0x4A1109, alpha: 0.25 });
     g.roundRect(22, y, W - 44, h, 14).fill(C.sign);
-    g.roundRect(22, y, W - 44, h, 14).stroke({ width: 4, color: 0x0B2540 });
+    g.roundRect(22, y, W - 44, h, 14).stroke({ width: 4, color: 0x6B1E14 });
     g.roundRect(30, y + 5, W - 60, 7, 3).fill({ color: 0xFFFFFF, alpha: 0.2 });
     signNode = new PIXI.Container();
     signNode.addChild(g);
@@ -1504,6 +1640,7 @@
     g.roundRect(PANEL_X - 10, TRAY_PANEL_Y, PANEL_W + 20, 208, 14).fill(C.steel);
     g.roundRect(PANEL_X - 10, TRAY_PANEL_Y + 2, PANEL_W + 20, 26, 12).fill({ color: 0xFFFFFF, alpha: 0.22 });
     g.roundRect(PANEL_X - 2, TRAY_PANEL_Y + 40, PANEL_W + 4, 160, 10).fill(C.shelf);
+    g.roundRect(PANEL_X - 2, TRAY_PANEL_Y + 40, PANEL_W + 4, 10, 6).fill({ color: 0x8A5A29, alpha: 0.14 });
     g.roundRect(PANEL_X - 2, TRAY_PANEL_Y + 6, PANEL_W + 4, 32, 10).fill(C.steelDark);
     g.roundRect(PANEL_X - 10, TRAY_PANEL_Y, PANEL_W + 20, 208, 14).stroke({ width: 5, color: C.steelDark });
     g.rect(PANEL_X - 10, TRAY_PANEL_Y + 4, PANEL_W + 20, 3).fill({ color: 0xFFFFFF, alpha: 0.35 });
@@ -1811,21 +1948,22 @@
 
   // Очередь покупателей: кто, что просит и сколько ещё подождёт.
   function renderQueue() {
-    for (var i = 0; i < QUEUE_SIZE; i++) {
+    var qw = queueW(), compact = qw < 176;          // с рекламой карточек больше, а места столько же
+    for (var i = 0; i < queueSize(); i++) {
       var c = state.customers[i];
       var box = new PIXI.Container();
       box.x = queueX(i); box.y = QUEUE_Y;
 
       var g = new PIXI.Graphics();
-      g.roundRect(3, 6, QUEUE_W, QUEUE_H, 16).fill({ color: 0x0F1A22, alpha: 0.16 });
-      g.roundRect(0, 0, QUEUE_W, QUEUE_H, 16).fill(c ? C.panel : 0xE4EAEF);
-      g.roundRect(0, 0, QUEUE_W, QUEUE_H, 16).stroke({ width: 4, color: c ? C.steelDark : C.steel });
-      g.rect(0, 0, QUEUE_W, 6).fill({ color: c ? C.sign : C.steel, alpha: c ? 0.9 : 0.5 });
+      g.roundRect(3, 6, qw, QUEUE_H, 16).fill({ color: 0x0F1A22, alpha: 0.16 });
+      g.roundRect(0, 0, qw, QUEUE_H, 16).fill(c ? C.panel : 0xE4EAEF);
+      g.roundRect(0, 0, qw, QUEUE_H, 16).stroke({ width: 4, color: c ? C.steelDark : C.steel });
+      g.rect(0, 0, qw, 6).fill({ color: c ? C.sign : C.steel, alpha: c ? 0.9 : 0.5 });
       box.addChild(g);
 
       if (!c) {
-        var wait = label('нет покупателя', 16, C.inkSoft, '600');
-        wait.anchor.set(0.5); wait.x = QUEUE_W / 2; wait.y = QUEUE_H / 2;
+        var wait = labelWrap('ждём покупателя', 15, C.inkSoft, '600', qw - 24);
+        wait.anchor.set(0.5); wait.x = qw / 2; wait.y = QUEUE_H / 2;
         box.addChild(wait);
         layers.queue.addChild(box);
         continue;
@@ -1833,18 +1971,24 @@
 
       var ratio = c.patience / c.max;
       var counts = trayCounts();
+      var lines = c.order;
 
-      var face = personGraphic(26, c.face, ratio > 0.5 ? 'happy' : (ratio > 0.25 ? 'wait' : 'sad'));
-      face.x = 44; face.y = 48;
+      var faceR = compact ? 21 : 26;
+      var face = personGraphic(faceR, c.face, ratio > 0.5 ? 'happy' : (ratio > 0.25 ? 'wait' : 'sad'));
+      face.x = compact ? qw / 2 : 44;
+      face.y = compact ? 42 : 48;
       box.addChild(face);
 
-      // набор покупателя: сколько позиций, столько кружков, собранное гаснет
-      var lines = c.order, cw = lines.length > 1 ? 44 : 64;
-      var x0 = QUEUE_W - 16 - lines.length * cw + cw / 2;
+      // набор покупателя: сколько позиций, столько кружков, собранное зеленеет
+      var r = compact ? 15 : (lines.length > 1 ? 20 : 32);
+      var cw = r * 2 + (compact ? 6 : 8);
+      var rowW = lines.length * cw;
+      var x0 = compact ? (qw - rowW) / 2 + cw / 2 : qw - 16 - rowW + cw / 2;
+      var cy = compact ? 104 : 44;
+
       lines.forEach(function (l, li) {
         var lp = productById(l.id);
-        var r = lines.length > 1 ? 20 : 32;
-        var cx = x0 + li * cw, cy = 44;
+        var cx = x0 + li * cw;
         var done = (counts[l.id] || 0) >= l.n;
 
         var disc = new PIXI.Graphics();
@@ -1857,35 +2001,43 @@
         box.addChild(ic);
 
         if (l.n > 1) {
+          var br = compact ? 10 : 13;
           var badge = new PIXI.Graphics();
-          badge.circle(cx + r * 0.8, cy + r * 0.8, 13).fill(C.ink);
+          badge.circle(cx + r * 0.8, cy + r * 0.8, br).fill(C.ink);
           box.addChild(badge);
-          var bt = label('×' + l.n, 14, 0xFFFFFF, '800');
+          var bt = label('×' + l.n, compact ? 11 : 14, 0xFFFFFF, '800');
           bt.anchor.set(0.5); bt.x = cx + r * 0.8; bt.y = cy + r * 0.8;
           box.addChild(bt);
         }
       });
 
-      var title = lines.length === 1
-        ? productById(lines[0].id).name + ' ×' + lines[0].n
-        : 'Набор · ' + orderTotal(c) + ' товара';
-      var want = label(title, 17, C.ink, '800');
-      want.anchor.set(0.5); want.x = QUEUE_W / 2; want.y = 108;
-      box.addChild(want);
+      if (!compact) {
+        var title = lines.length === 1
+          ? productById(lines[0].id).name + ' ×' + lines[0].n
+          : 'Набор · ' + orderTotal(c) + ' товара';
+        var want = label(title, 17, C.ink, '800');
+        want.anchor.set(0.5); want.x = qw / 2; want.y = 108;
+        box.addChild(want);
 
-      var reward = label('+50% к продаже', 14, C.green, '700');
-      reward.anchor.set(0.5); reward.x = QUEUE_W / 2; reward.y = 134;
-      box.addChild(reward);
+        var reward = label('+50% к продаже', 14, C.green, '700');
+        reward.anchor.set(0.5); reward.x = qw / 2; reward.y = 134;
+        box.addChild(reward);
+      } else {
+        var short = label('+50%', 13, C.green, '800');
+        short.anchor.set(0.5); short.x = qw / 2; short.y = 136;
+        box.addChild(short);
+      }
 
+      var bm = compact ? 12 : 20;
       var bar = new PIXI.Graphics();
-      bar.roundRect(20, 158, QUEUE_W - 40, 24, 5).fill(0xE2E9EE);
-      bar.roundRect(20, 158, Math.max(14, (QUEUE_W - 40) * ratio), 24, 12)
+      bar.roundRect(bm, 158, qw - bm * 2, 24, 5).fill(0xE2E9EE);
+      bar.roundRect(bm, 158, Math.max(14, (qw - bm * 2) * ratio), 24, 12)
          .fill(ratio > 0.5 ? 0x5CCA65 : (ratio > 0.25 ? C.gold : C.red));
-      bar.roundRect(20, 158, QUEUE_W - 40, 24, 12).stroke({ width: 4, color: C.ink, alpha: 0.8 });
+      bar.roundRect(bm, 158, qw - bm * 2, 24, 12).stroke({ width: 4, color: C.ink, alpha: 0.8 });
       box.addChild(bar);
 
-      var pt = label('ждёт ещё ' + c.patience, 14, C.ink, '700');
-      pt.anchor.set(0.5); pt.x = QUEUE_W / 2; pt.y = 170;
+      var pt = label(compact ? String(c.patience) : 'ждёт ещё ' + c.patience, 14, C.ink, '700');
+      pt.anchor.set(0.5); pt.x = qw / 2; pt.y = 170;
       box.addChild(pt);
 
       layers.queue.addChild(box);
@@ -2181,6 +2333,17 @@
       g.roundRect(s * 0.18, s * 0.54, s * 0.64, s * 0.28, 6).stroke({ width: 4, color: C.ink });
       g.circle(s * 0.34, s * 0.24, s * 0.09).fill(C.gold);
       g.circle(s * 0.62, s * 0.24, s * 0.09).fill(0xFF675B);
+    } else if (id === 'ads') {
+      g.moveTo(s * 0.2, s * 0.36).lineTo(s * 0.5, s * 0.2).lineTo(s * 0.5, s * 0.76)
+       .lineTo(s * 0.2, s * 0.6).closePath().fill(C.gold);
+      g.moveTo(s * 0.2, s * 0.36).lineTo(s * 0.5, s * 0.2).lineTo(s * 0.5, s * 0.76)
+       .lineTo(s * 0.2, s * 0.6).closePath().stroke({ width: 4, color: C.ink });
+      g.roundRect(s * 0.08, s * 0.38, s * 0.14, s * 0.2, 4).fill(C.steelLight);
+      g.roundRect(s * 0.08, s * 0.38, s * 0.14, s * 0.2, 4).stroke({ width: 4, color: C.ink });
+      [0.58, 0.72, 0.86].forEach(function (r, i) {
+        g.moveTo(s * r, s * (0.34 - i * 0.02)).quadraticCurveTo(s * (r + 0.08), s * 0.48, s * r, s * (0.62 + i * 0.02))
+         .stroke({ width: 4 - i, color: C.ink, alpha: 0.9 - i * 0.2, cap: 'round' });
+      });
     } else {
       g.roundRect(s * 0.12, s * 0.24, s * 0.76, s * 0.4, 8).fill(C.red);
       g.roundRect(s * 0.12, s * 0.24, s * 0.76, s * 0.4, 8).stroke({ width: 4, color: C.ink });
@@ -2216,7 +2379,7 @@
     wallet.anchor.set(1, 0.5); wallet.x = px + pw - 30; wallet.y = py + 50;
     overlay.addChild(wallet);
 
-    var rowY = py + 122, rowH = 152;
+    var rowY = py + 122, rowH = 142;        // шесть апгрейдов должны помещаться в панель
     UPGRADES.forEach(function (u, i) {
       var y = rowY + i * rowH;
       var lvl = meta.up[u.id], price = upgradePrice(u);
@@ -2479,6 +2642,7 @@
         fridgeSize: fridgeSize, beltVisible: beltVisible, traySize: traySize,
         zoneRange: zoneRange, zoneOfSlot: zoneOfSlot, pullDemanded: pullDemanded,
         section: function (id) { return productById(id).section; },
+        products: function () { return PRODUCTS.map(function (x) { return x.id; }); },
         build: BUILD, metaResetFrom: function () { return metaResetFrom; },
         // лист типажей для визуальной проверки набора покупателей
         faceSheet: function () {

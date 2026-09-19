@@ -123,20 +123,23 @@ const lose = await page.evaluate(() => {
   const P = window.__proto; P.startShift(2, 12345);
   const st = P.state;
   st.customers = [];                                  // проверяем именно забитый прилавок, без заказов
-  const uniq = [...new Set(st.belt)];
+  const all = P.products();
   const zones = ['dairy','grocery','produce'];
-  const zone = zones.find(z => uniq.some(id => P.section(id) === z));
-  const spare = uniq.find(id => P.section(id) === zone);
-  const rest = uniq.filter(id => id !== spare);
+  const zone = zones[0];
+  const spare = all.find(id => P.section(id) === zone);
+  const rest = all.filter(id => id !== spare);
   if (!spare || !rest.length) return { skipped: true };
   // забиваем все слоты кроме последнего в зоне запасного товара, троек не собираем
   const r = P.zoneRange(zone);
   const freeSlot = r.to - 1;
+  // пары, без троек: тройка продалась бы сама и освободила полку
+  const fill = [];
+  rest.forEach(id => { fill.push(id, id); });
   for (let i = 0, k = 0; i < st.tray.length; i++) {
     if (i === freeSlot) continue;
-    st.tray[i] = rest[k % rest.length]; st.fresh[i] = 99; k++;   // тест не про просрочку
+    st.tray[i] = fill[k]; st.fresh[i] = 99; k++;                 // тест не про просрочку
   }
-  const triples = uniq.some(id => st.tray.filter(t => t === id).length >= 3);
+  const triples = all.some(id => st.tray.filter(t => t === id).length >= 3);
   const before = { status: st.status, free: st.tray.filter(c => c === null).length, triples };
   st.belt[0] = spare;
   P.select('belt', 0);
