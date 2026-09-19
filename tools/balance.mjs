@@ -41,7 +41,7 @@ const run = async (pull) => page.evaluate(([pull, seeds]) => {
         reasons[why] = (reasons[why] || 0) + 1;
       }
     }
-    rows.push({ shift: shift + 1, wins: Math.round(wins / seeds * 100),
+    rows.push({ shift: shift + 1, slots: P.traySize(), wins: Math.round(wins / seeds * 100),
                 free: +(freeSum / Math.max(1, moves)).toFixed(1),
                 tight: Math.round(tight / Math.max(1, moves) * 100),
                 lost: +(lost / seeds).toFixed(1), reasons });
@@ -55,7 +55,7 @@ for (const [name, pull] of [['с подтягиванием (0.7)', 0.7], ['бе
   console.log('| Смена | Побед бота | Свободно слотов | Ходов «в тесноте» | Ушло покупателей |');
   console.log('|---|---|---|---|---|');
   for (const r of rows) {
-    console.log(`| ${r.shift} | ${r.wins}% | ${r.free} из 9 | ${r.tight}% | ${r.lost} |`);
+    console.log(`| ${r.shift} | ${r.wins}% | ${r.free} из ${r.slots} | ${r.tight}% | ${r.lost} |`);
   }
   console.log('причины поражений:', JSON.stringify(rows.map(r => r.reasons)));
 }

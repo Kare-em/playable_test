@@ -26,7 +26,7 @@ const start = await page.evaluate(() => {
            customers: st.customers.length, status: st.status };
 });
 console.log('shift1', JSON.stringify(start));
-if (start.tray !== 9 || start.customers !== 3) fail('прилавок или очередь собраны неверно');
+if (start.tray !== 12 || start.customers !== 3) fail('прилавок или очередь собраны неверно');
 
 // 2. три одинаковых в своей зоне: продажа, бонус зоны, комбо
 const triple = await page.evaluate(() => {
@@ -73,32 +73,26 @@ const patience = await page.evaluate(() => {
 console.log('терпение', JSON.stringify(patience));
 if (patience.lost < 1) fail('покупатель не ушёл по истечении терпения');
 
-// 5. проигрыш: прилавок забит разными товарами
+// 5. проигрыш по забитому прилавку: последний свободный слот закрывает смену
 const lose = await page.evaluate(() => {
   const P = window.__proto; P.startShift(2, 12345);
   const st = P.state;
-  let guard = 0;
-  while (st.status === 'playing' && guard++ < 60) {
-    const zones = ['dairy','grocery','produce'];
-    let done = false;
-    for (const z of zones) {
-      const r = P.zoneRange(z);
-      let free = false;
-      for (let i = r.from; i < r.to; i++) if (st.tray[i] === null) free = true;
-      if (!free) continue;
-      const vis = st.belt.slice(0, P.beltVisible());
-      let idx = vis.findIndex(p => !st.tray.includes(p));
-      if (idx === -1) idx = 0;
-      P.select('belt', idx);
-      done = P.place(z);
-      break;
-    }
-    if (!done) break;
-  }
-  return { status: st.status, filled: st.tray.filter(Boolean).length };
+  st.customers.forEach(c => { c.patience = 9999; });   // проверяем именно забитый прилавок
+  const uniq = [...new Set(st.belt)];
+  // забиваем прилавок парами (тройка бы продалась), оставляя один слот
+  const fill = [];
+  for (const id of uniq) { fill.push(id, id); if (fill.length >= st.tray.length - 1) break; }
+  for (let i = 0; i < st.tray.length - 1; i++) st.tray[i] = fill[i];
+  const spare = uniq.find(id => !fill.includes(id));
+  st.belt[0] = spare;
+  const before = { status: st.status, free: st.tray.filter(c => c === null).length };
+  P.select('belt', 0);
+  P.place(P.zoneOfSlot(st.tray.length - 1));
+  return { before, status: st.status, filled: st.tray.filter(Boolean).length, slots: st.tray.length };
 });
 console.log('проигрыш', JSON.stringify(lose));
-if (lose.status !== 'lost') fail('смена не проигрывается при забитом прилавке');
+if (lose.before.free !== 1 || lose.before.status !== 'playing') fail('тест собран неверно: прилавок не был почти полон');
+if (lose.status !== 'lost' || lose.filled !== lose.slots) fail('смена не проигрывается при забитом прилавке');
 
 // 6. бот проходит смену целиком
 const auto = await page.evaluate(() => {

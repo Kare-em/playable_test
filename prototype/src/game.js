@@ -19,10 +19,10 @@
 
   // Зоны прилавка. Вместимость зоны меньше, чем хочется, — в этом весь конфликт.
   var ZONES = [
-    // ровно три слота: меньше — и тройку в своей зоне не собрать в принципе
-    { id: 'dairy',   name: 'Молочка', slots: 3, color: 0x1F74D0, tint: 0xD3E6FB },
-    { id: 'grocery', name: 'Бакалея', slots: 3, color: 0xD07E07, tint: 0xFCE7BE },
-    { id: 'produce', name: 'Овощи',   slots: 3, color: 0x2E9B36, tint: 0xDCF2D6 }
+    // четыре слота: тройку в своей зоне можно собрать, и ещё остаётся ход про запас
+    { id: 'dairy',   name: 'Молочка', slots: 4, color: 0x1F74D0, tint: 0xD3E6FB },
+    { id: 'grocery', name: 'Бакалея', slots: 4, color: 0xD07E07, tint: 0xFCE7BE },
+    { id: 'produce', name: 'Овощи',   slots: 4, color: 0x2E9B36, tint: 0xDCF2D6 }
   ];
 
   var PRODUCTS = [
@@ -910,7 +910,10 @@
           .fill({ color: 0x4F3B25, alpha: 0.22 });
     c.addChild(shadow);
 
-    var icon = productIcon(product, Math.min(w, h * (opts.price ? 0.68 : 0.96)) * 1.02);
+    // на прилавке слот узкий, но высокий: тянемся по высоте, иначе товар мельчает
+    var icon = productIcon(product, opts.price
+      ? Math.min(w, h * 0.68) * 1.02
+      : Math.min(w * 1.5, h * 0.98));
     icon.x = w / 2; icon.y = h * (opts.price ? 0.36 : 0.46);
     c.addChild(icon);
 
