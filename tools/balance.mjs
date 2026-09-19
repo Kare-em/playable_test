@@ -15,7 +15,7 @@ const page = await browser.newPage({ viewport: { width: 420, height: 860 } });
 await page.goto(base + '/prototype/index.html');
 await page.waitForFunction(() => window.__proto, null, { timeout: 15000 });
 
-const run = async (pull) => page.evaluate(([pull, seeds]) => {
+const run = async (pull, buyAll) => page.evaluate(([pull, seeds, buyAll]) => {
   const P = window.__proto;
   P.demandPull(pull);
   P.log.clear();
@@ -25,6 +25,7 @@ const run = async (pull) => page.evaluate(([pull, seeds]) => {
     const reasons = {};
     for (let s = 0; s < seeds; s++) {
       Object.keys(P.meta.up).forEach(k => { P.meta.up[k] = 0; });   // баланс без апгрейдов
+      if (buyAll) { P.meta.wallet = 999999; P.buy('produce'); P.buy('meat'); P.buy('chem'); }
       P.startShift(shift, 1000 + s * 37);
       const st = P.state;
       let guard = 0;
@@ -53,10 +54,14 @@ const run = async (pull) => page.evaluate(([pull, seeds]) => {
                 revenue: Math.round(revenue / seeds), reasons });
   }
   return rows;
-}, [pull, seeds]);
+}, [pull, seeds, buyAll]);
 
-for (const [name, pull] of [['с подтягиванием (0.7)', 0.7], ['без подтягивания (0)', 0]]) {
-  const rows = await run(pull);
+for (const [name, pull, buyAll] of [
+  ['два отдела, разбор по позициям', 0.35, false],
+  ['все отделы, только целая корзина', 0.35, true],
+  ['два отдела без подтягивания', 0, false]
+]) {
+  const rows = await run(pull, buyAll);
   console.log('\n### ' + name);
   console.log('| Смена | Побед бота | Свободно слотов | Ушло покупателей | Списано | Выручка |');
   console.log('|---|---|---|---|---|---|');

@@ -397,6 +397,29 @@ if (zones.withMeat !== zones.base + 4 || zones.withChem !== zones.base + 8)
   fail('покупка отдела не расширяет прилавок');
 if (!zones.chemOnBelt) fail('товары нового отдела не попадают в завоз');
 
+// 19. правило целой корзины включается только после выкупа всех отделов
+const modes = await page.evaluate(() => {
+  const P = window.__proto;
+  const probe = (buyAll) => {
+    Object.keys(P.meta.up).forEach(k => { P.meta.up[k] = 0; });
+    if (buyAll) { P.meta.wallet = 999999; P.buy('produce'); P.buy('meat'); P.buy('chem'); }
+    P.startShift(0, 4242);
+    const st = P.state;
+    const id = st.belt[0];
+    st.customers = [{ order: [{ id, n: 2 }], patience: 99, max: 99, face: 0, got: {}, value: 0, cheer: 0 }];
+    st.belt.unshift(id);
+    P.tapItem('belt', 0);
+    return { onTray: st.tray.filter(Boolean).length, served: st.served, zones: P.traySize() / 4 };
+  };
+  const partial = probe(false);
+  const whole = probe(true);
+  return { partial, whole };
+});
+console.log('режимы корзины', JSON.stringify(modes));
+if (modes.partial.onTray !== 0) fail('до выкупа всех отделов покупатель не забрал позицию с полки');
+if (modes.whole.onTray !== 1) fail('после выкупа всех отделов позиция всё равно ушла по одной');
+if (modes.whole.served !== 0) fail('неполный набор закрылся как заказ');
+
 await page.screenshot({ path: '/tmp/smoke-final.png' });
 await browser.close();
 console.log('ошибки в консоли:', errors.length ? errors : 'нет');

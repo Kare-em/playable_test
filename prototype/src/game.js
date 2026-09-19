@@ -36,6 +36,12 @@
   // Зоны, которые сейчас работают: мясной прилавок появляется после покупки.
   // Магазин начинается с двух отделов, остальные докупаются — и каждый
   // следующий дороже предыдущего.
+  // Пока магазин не достроен, покупатель разбирает полку по одной позиции.
+  // Когда выкуплены все отделы, включается правило целой корзины: он ждёт,
+  // пока весь набор не окажется на полках, и забирает разом. Финальная стадия
+  // магазина — это уже головоломка про место.
+  function wholeBasketMode() { return activeZones().length === ZONES.length; }
+
   function activeZones() {
     return ZONES.filter(function (z) {
       if (z.id === 'produce') return meta.up.produce > 0;
@@ -82,9 +88,9 @@
   // просрочку. Раньше завоз был вдвое больше спроса, и лишнее просто портилось.
   var SPARE = 6;               // запас сверх плана и полки, в штуках
   var SHIFTS = [
-    { types: 6,  crates: 30, goal: 6, patience: 11, visible: 5, lives: 4, sale: false },
-    { types: 8,  crates: 36, goal: 8, patience: 12, visible: 6, lives: 3, sale: false },
-    { types: 10, crates: 39, goal: 11, patience: 12, visible: 6, lives: 3, sale: true  }
+    { types: 6,  crates: 30, goal: 6, patience: 12, visible: 5, lives: 4, sale: false },
+    { types: 8,  crates: 36, goal: 9, patience: 13, visible: 6, lives: 3, sale: false },
+    { types: 10, crates: 39, goal: 9, patience: 14, visible: 6, lives: 3, sale: true  }
   ];
 
   var QUEUE_SIZE = 3;
@@ -431,9 +437,13 @@
     if (!u) return false;
     var price = upgradePrice(u);
     if (price == null || meta.wallet < price) { sfx('deny'); return false; }
+    var wasWhole = wholeBasketMode();
     meta.wallet -= price;
     meta.up[u.id] += 1;
     saveMeta();
+    if (!wasWhole && wholeBasketMode()) {
+      toast('Все отделы открыты: покупатели ждут корзину целиком');
+    }
     logEvent('upgrade', { id: u.id, level: meta.up[u.id], price: price, wallet: meta.wallet });
     sfx('booster');
     showShop();
@@ -477,17 +487,24 @@
   }
 
   function shiftConfig(idx) {
-    if (idx < SHIFTS.length) return SHIFTS[idx];
-    var goal = 11 + (idx - 2);
-    return {
-      types: 14,
-      crates: goal * 3 + 12 + SPARE,         // план + полка + запас на просрочку
-      goal: goal,
-      patience: Math.max(10, 13 - Math.floor((idx - 2) / 3)),
-      visible: 6,
-      lives: 3,
-      sale: true
-    };
+    var base;
+    if (idx < SHIFTS.length) base = SHIFTS[idx];
+    else {
+      var goal = 11 + (idx - 2);
+      base = {
+        types: 14, crates: 0, goal: goal,
+        patience: Math.max(10, 13 - Math.floor((idx - 2) / 3)),
+        visible: 6, lives: 3, sale: true
+      };
+    }
+    var cfg = {};
+    for (var k in base) if (Object.prototype.hasOwnProperty.call(base, k)) cfg[k] = base[k];
+
+    // Завоз считается от плана и от размера полки: часть поставки всегда
+    // заморожена на прилавке, а с новыми отделами полка больше.
+    var need = cfg.goal * 3 + traySize() + SPARE;
+    cfg.crates = need + ((3 - need % 3) % 3);
+    return cfg;
   }
 
   /* ------------------------------------------------------------- состояние */
@@ -610,7 +627,8 @@
     var stuck = !placeableNow();          // в окне вообще нечего выложить
     var wanted = function (id) { return stuck ? fits(id) : (need[id] && fits(id)); };
     for (var v = 0; v < n; v++) if (wanted(state.belt[v])) return false;   // и так под рукой
-    if (!stuck && state.rnd() > DEMAND_PULL) return false;                 // из тупика тянем всегда
+    var pull = wholeBasketMode() ? Math.max(DEMAND_PULL, 0.75) : DEMAND_PULL;
+    if (!stuck && state.rnd() > pull) return false;                        // из тупика тянем всегда
 
     var to = Math.min(state.belt.length, stuck ? state.belt.length : n + DEMAND_DEPTH);
     for (var i = n; i < to; i++) {
@@ -661,15 +679,17 @@
       c.order.forEach(function (l) { taken[l.id] = true; });
     });
 
-    var roll = state.rnd();
-    var shapes = roll < 0.4 ? [[3], [2, 1], [1, 1, 1]]
-               : roll < 0.75 ? [[2, 1], [1, 1, 1], [3]]
-                             : [[1, 1, 1], [2, 1], [3]];
+    var roll = state.rnd(), whole = wholeBasketMode();
+    var shapes = roll < (whole ? 0.5 : 0.4) ? [[3], [2, 1], [1, 1, 1]]
+               : roll < (whole ? 0.9 : 0.75) ? [[2, 1], [3], [1, 1, 1]]
+                                             : [[1, 1, 1], [2, 1], [3]];
     var order = null;
     for (var s = 0; s < shapes.length && !order; s++) order = pickOrder(counts, taken, shapes[s]);
     if (!order) return null;
 
+    // в режиме целой корзины набор собирается дольше — и терпения нужно больше
     var patience = state.cfg.patience + meta.up.sign * 5;
+    if (wholeBasketMode()) patience = Math.round(patience * 1.7);
     // типаж покупателя: стараемся не ставить рядом два одинаковых лица
     var used = state.customers.map(function (q) { return q.face; });
     var face = Math.floor(state.rnd() * PEOPLE.length);
@@ -687,12 +707,29 @@
   }
 
   // Сколько ещё этого товара нужно покупателю, чтобы его набор закрылся.
-  function stillNeeded(c, productId) {
+  function stillNeeded(c, productId, counts) {
+    var whole = wholeBasketMode();
+    if (whole && !counts) counts = trayCounts();
     var need = 0;
     c.order.forEach(function (l) {
-      if (l.id === productId) need = Math.max(0, l.n - (c.got[l.id] || 0));
+      if (l.id !== productId) return;
+      var have = whole ? (counts[l.id] || 0) : (c.got[l.id] || 0);
+      need = Math.max(0, l.n - have);
     });
     return need;
+  }
+
+  // Сколько позиций набора уже закрыто — для галочек в карточке очереди.
+  function gotCount(c, line, counts) {
+    return wholeBasketMode() ? Math.min(line.n, counts[line.id] || 0)
+                             : (c.got[line.id] || 0);
+  }
+
+  function orderReady(c, counts) {
+    for (var i = 0; i < c.order.length; i++) {
+      if ((counts[c.order[i].id] || 0) < c.order[i].n) return false;
+    }
+    return true;
   }
 
   function orderDone(c) {
@@ -706,6 +743,7 @@
   // которые уже выложены, и уходит, когда корзина собралась. Полка за счёт
   // этого разгружается по ходу, а очередь видно, что движется.
   function collectFromTray() {
+    if (wholeBasketMode()) return false;          // теперь только целиком
     var took = false;
     state.customers.slice().forEach(function (c) {
       // одна позиция за ход: покупатель обходит прилавок, а не сметает его
@@ -730,6 +768,13 @@
       if (orderDone(c)) completeOrder(c);
     });
     return took;
+  }
+
+  // Нужный товар появился на полке — тот, кто его ждёт, приободрился.
+  function cheerNearby(product) {
+    state.customers.forEach(function (c) {
+      c.order.forEach(function (l) { if (l.id === product.id) c.cheer = 2; });
+    });
   }
 
   function completeOrder(c) {
@@ -870,7 +915,7 @@
       if (productById(productId).section === zoneId) shiftStat.home++;
     }
 
-    collectFromTray();                   // покупатели забирают своё первыми
+    if (!collectFromTray()) cheerNearby(product);   // разбор по позициям или ожидание целого набора
     var sale = resolveSale();
     tickPatience();
     tickFresh();
@@ -919,21 +964,35 @@
   }
 
   // Любые три одинаковых на прилавке продаются. Бонусы: своя зона и заказ.
-  // То, что не забрал ни один покупатель: три одинаковых уходят «с полки».
+  // В режиме целой корзины сначала закрывается собранный набор покупателя;
+  // всё остальное — привычная тройка одинаковых «с полки», без заказа.
   function resolveSale() {
     var counts = trayCounts();
-    var hit = Object.keys(counts).filter(function (k) { return counts[k] >= 3; })[0];
-    if (!hit) return false;
 
-    var product = productById(hit);
-    var chosen = takeSlots(hit, 3);
+    var cust = null;
+    if (wholeBasketMode()) {
+      for (var q = 0; q < state.customers.length && !cust; q++) {
+        if (orderReady(state.customers[q], counts)) cust = state.customers[q];
+      }
+    }
+
+    var product = null, chosen = [];
+    if (cust) {
+      cust.order.forEach(function (l) { chosen = chosen.concat(takeSlots(l.id, l.n)); });
+      product = productById(cust.order[0].id);
+    } else {
+      var hit = Object.keys(counts).filter(function (k) { return counts[k] >= 3; })[0];
+      if (!hit) return false;
+      product = productById(hit);
+      chosen = takeSlots(hit, 3);
+    }
     var perfect = chosen.every(function (i) { return zoneOfSlot(i) === productById(state.tray[i]).section; });
 
     var sum = 0;
     chosen.forEach(function (i) { sum += priceOf(productById(state.tray[i])); });
-    var order = null;
+    var order = cust ? serveCustomer(cust) : null;
     var mult = perfect ? ZONE_MULT * comboMult() : 1;
-    var gain = sum * mult;
+    var gain = sum * mult * (order ? ORDER_MULT : 1);
 
     state.revenue += gain;
     state.combo = perfect ? state.combo + 1 : 0;
@@ -2152,6 +2211,7 @@
 
       var ratio = c.patience / c.max;
       var mood = customerMood(c);
+      var counts = trayCounts();
 
       var face = personGraphic(Math.min(30, qh * 0.26), c.face, mood);
       face.x = 54; face.y = qh * 0.46;
@@ -2163,7 +2223,7 @@
       lines.forEach(function (l, li) {
         var lp = productById(l.id);
         var cx = x0 + li * step;
-        var got = c.got[l.id] || 0, done = got >= l.n;
+        var got = gotCount(c, l, counts), done = got >= l.n;
 
         var disc = new PIXI.Graphics();
         disc.circle(cx, cy, r).fill(done ? mix(C.green, 0xFFFFFF, 0.78) : mix(lp.accent, 0xFFFFFF, 0.45));
