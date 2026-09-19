@@ -18,6 +18,7 @@ await page.waitForFunction(() => window.__proto, null, { timeout: 15000 });
 const run = async (pull) => page.evaluate(([pull, seeds]) => {
   const P = window.__proto;
   P.demandPull(pull);
+  P.log.clear();
   const rows = [];
   for (let shift = 0; shift < 3; shift++) {
     let wins = 0, freeSum = 0, tight = 0, moves = 0, lost = 0;
@@ -36,8 +37,9 @@ const run = async (pull) => page.evaluate(([pull, seeds]) => {
       lost += st.lost;
       if (st.status === 'won') wins++;
       else {
-        const why = st.tray.filter(Boolean).length === st.tray.length ? 'прилавок забит'
-          : st.lost >= st.cfg.lives ? 'ушли покупатели' : 'завоз кончился';
+        // причину знает сама игра — берём её из журнала, а не угадываем по состоянию
+        const ends = P.log.events.filter(e => e.type === 'shift_end');
+        const why = (ends[ends.length - 1] || {}).reason || 'план не выполнен';
         reasons[why] = (reasons[why] || 0) + 1;
       }
     }

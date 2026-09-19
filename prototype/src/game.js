@@ -197,7 +197,7 @@
   // Сводка под три вопроса протокола плейтеста, а не «вся статистика вообще».
   function logSummary() {
     var s = { shifts: 0, won: 0, lost: 0, streakMax: 0, streakNow: streak,
-              moves: 0, home: 0, denyFull: 0, lostCustomers: 0,
+              moves: 0, home: 0, denyFull: 0, denyZone: 0, lostCustomers: 0,
               undo: 0, fridge: 0, shuffle: 0, retries: 0, upgrades: 0,
               minutes: 0, reasons: {} };
     var first = { m: 0, h: 0 }, late = { m: 0, h: 0 };
@@ -214,6 +214,7 @@
         s.moves += e.moves || 0;
         s.home += e.home || 0;
         s.denyFull += e.denyFull || 0;
+        s.denyZone += e.denyZone || 0;
         s.lostCustomers += e.lost || 0;
         s.minutes += (e.sec || 0) / 60;
         var bucket = e.shift === 1 ? first : (e.shift >= 3 ? late : null);
@@ -284,8 +285,7 @@
     var rows = document.createElement('div');
     [ ['Смен сыграно', s.shifts + ' (побед ' + s.won + ', сорвано ' + s.lost + ')'],
       ['Смен подряд', 'рекорд ' + s.streakMax + ', сейчас ' + s.streakNow],
-      ['Выкладок в свою зону', pct(s.homeRate)],
-      ['…в первой смене / с третьей', pct(s.homeRateFirst) + ' → ' + pct(s.homeRateLate)],
+      ['Тапов по чужой зоне', String(s.denyZone)],
       ['Бустеры', 'вернуть ' + s.undo + ', отложить ' + s.fridge + ', перемешать ' + s.shuffle],
       ['Тапов по забитой зоне', String(s.denyFull)],
       ['Ушло покупателей', String(s.lostCustomers)],
@@ -380,6 +380,11 @@
     return n;
   }
 
+  function zoneById(id) {
+    for (var i = 0; i < ZONES.length; i++) if (ZONES[i].id === id) return ZONES[i];
+    return null;
+  }
+
   function zoneRange(zoneId) {
     var from = 0;
     for (var i = 0; i < ZONES.length; i++) {
@@ -425,8 +430,18 @@
   streak = meta.streak || 0;
   totalRevenue = meta.total || 0;
 
-  function buildBelt(cfg, rnd) {
-    var pool = PRODUCTS.slice(0, cfg.types);
+  // Товар ложится только в свою зону, поэтому набор смены берётся из секций
+  // поровну: иначе одна зона забивается, а другая простаивает всю смену.
+  function poolFor(types) {
+    var pool = [];
+    ZONES.forEach(function (z, i) {
+      var n = Math.floor(types / ZONES.length) + (i < types % ZONES.length ? 1 : 0);
+      pool = pool.concat(PRODUCTS.filter(function (p) { return p.section === z.id; }).slice(0, n));
+    });
+    return pool;
+  }
+
+  function buildBelt(cfg, rnd, pool) {
     var triples = cfg.crates / 3;
     var belt = [];
     for (var i = 0; i < triples; i++) {
@@ -444,14 +459,15 @@
     var cfg = shiftConfig(shiftIdx);
     var rnd = mulberry32(seed == null ? (shiftIdx + 1) * 7919 : seed);
 
+    var pool = poolFor(cfg.types);
     var saleProduct = null;
-    if (cfg.sale) saleProduct = PRODUCTS[Math.floor(rnd() * cfg.types)].id;
+    if (cfg.sale) saleProduct = pool[Math.floor(rnd() * pool.length)].id;
 
     state = {
       shiftIdx: shiftIdx,
       cfg: cfg,
       rnd: rnd,
-      belt: buildBelt(cfg, rnd),
+      belt: buildBelt(cfg, rnd, pool),
       tray: new Array(traySize()).fill(null),
       fridge: [],
       customers: [],
@@ -471,7 +487,7 @@
     hiddenSlots = {};
     for (var i = 0; i < QUEUE_SIZE; i++) spawnCustomer();
     pullDemanded();
-    shiftStat = { started: Date.now(), moves: 0, home: 0, denyFull: 0 };
+    shiftStat = { started: Date.now(), moves: 0, home: 0, denyFull: 0, denyZone: 0 };
     logEvent('shift_start', { shift: shiftIdx + 1, goal: cfg.goal, tray: state.tray.length,
       belt: state.belt.length, patience: cfg.patience + meta.up.sign * 5,
       up: upgradeSnapshot(), streak: streak });
@@ -493,6 +509,12 @@
   function pullDemanded() {
     if (!state || state.status !== 'playing') return false;
 
+    var fits = function (id) {
+      var r = zoneRange(productById(id).section);
+      for (var k = r.from; k < r.to; k++) if (state.tray[k] === null) return true;
+      return false;
+    };
+
     var need = {}, counts = {};
     state.tray.forEach(function (id) { if (id) counts[id] = (counts[id] || 0) + 1; });
     Object.keys(counts).forEach(function (id) { if (counts[id] >= 2) need[id] = true; });
@@ -500,12 +522,15 @@
 
     var n = Math.min(beltVisible(), state.belt.length);
     if (!n) return false;
-    for (var v = 0; v < n; v++) if (need[state.belt[v]]) return false;   // и так под рукой
-    if (state.rnd() > DEMAND_PULL) return false;
 
-    var to = Math.min(state.belt.length, n + DEMAND_DEPTH);
+    var stuck = !placeableNow();          // в окне вообще нечего выложить
+    var wanted = function (id) { return stuck ? fits(id) : (need[id] && fits(id)); };
+    for (var v = 0; v < n; v++) if (wanted(state.belt[v])) return false;   // и так под рукой
+    if (!stuck && state.rnd() > DEMAND_PULL) return false;                 // из тупика тянем всегда
+
+    var to = Math.min(state.belt.length, stuck ? state.belt.length : n + DEMAND_DEPTH);
     for (var i = n; i < to; i++) {
-      if (!need[state.belt[i]]) continue;
+      if (!wanted(state.belt[i])) continue;
       var t = state.belt[i]; state.belt[i] = state.belt[n - 1]; state.belt[n - 1] = t;
       return true;
     }
@@ -576,22 +601,31 @@
     return true;
   }
 
-  // Положить выбранный товар в зону прилавка.
+  // Положить выбранный товар в его зону: молочка — к молочке, бакалея — к
+  // бакалее, овощи — к овощам. Чужая зона товар не принимает.
   function place(zoneId) {
     if (state.status !== 'playing') return false;
     if (!state.selected) { toast('Сначала возьмите товар с завоза'); sfx('deny'); return false; }
+
+    var sel = state.selected;
+    var productId = sel.from === 'belt' ? state.belt[sel.index] : state.fridge[sel.index];
+    if (!productId) return false;
+    var product = productById(productId);
+
+    if (product.section !== zoneId) {
+      if (shiftStat) shiftStat.denyZone++;
+      toast(product.name + ' — в зону «' + zoneById(product.section).name + '»');
+      shakeZone(zoneId); sfx('deny');
+      return false;
+    }
 
     var range = zoneRange(zoneId);
     var slot = -1;
     for (var i = range.from; i < range.to; i++) if (state.tray[i] === null) { slot = i; break; }
     if (slot === -1) {
       if (shiftStat) shiftStat.denyFull++;
-      toast('В этой зоне нет места'); shakeZone(zoneId); sfx('deny'); return false;
+      toast('В зоне «' + zoneById(zoneId).name + '» нет места'); shakeZone(zoneId); sfx('deny'); return false;
     }
-
-    var sel = state.selected;
-    var productId = sel.from === 'belt' ? state.belt[sel.index] : state.fridge[sel.index];
-    if (!productId) return false;
 
     var from = sel.from === 'belt' ? beltSlotPos(sel.index) : fridgeSlotPos(sel.index);
 
@@ -624,7 +658,32 @@
     else if (state.lost >= state.cfg.lives) finish('lost', 'Слишком много ушедших покупателей');
     else if (trayIsFull()) finish('lost', 'Прилавок забит — смена сорвана');
     else if (state.belt.length === 0 && state.fridge.length === 0) finish('lost', 'Завоз кончился, план не выполнен');
+    else checkStuck();
     return true;
+  }
+
+  // Товар ложится только в свою зону, поэтому возможен тупик: зона забита, а
+  // в руках только её товар. Смена не должна зависать — это проигрыш.
+  function placeableNow() {
+    var ids = state.belt.slice(0, beltVisible()).concat(state.fridge);
+    for (var i = 0; i < ids.length; i++) {
+      var r = zoneRange(productById(ids[i]).section);
+      for (var k = r.from; k < r.to; k++) if (state.tray[k] === null) return true;
+    }
+    return false;
+  }
+
+  // Выход из тупика: отменить ход, перемешать завоз или убрать товар в холодильник.
+  function escapeLeft() {
+    if (state.boosters.undo && state.lastPlacement) return true;
+    if (state.boosters.shuffle && state.belt.length > beltVisible()) return true;
+    if (state.boosters.fridge && state.fridge.length < fridgeSize() && state.belt.length) return true;
+    return false;
+  }
+
+  function checkStuck() {
+    if (state.status !== 'playing') return;
+    if (!placeableNow() && !escapeLeft()) finish('lost', 'Некуда выложить товар — зоны забиты');
   }
 
   // Любые три одинаковых на прилавке продаются. Бонусы: своя зона и заказ.
@@ -689,6 +748,7 @@
     toast('Товар возвращён');
     sfx('booster');
     render();
+    checkStuck();
     return true;
   }
 
@@ -703,6 +763,7 @@
     toast('Товар отложен в холодильник');
     sfx('booster');
     render();
+    checkStuck();
     return true;
   }
 
@@ -719,6 +780,7 @@
     toast('Завоз перемешан');
     sfx('booster');
     render();
+    checkStuck();
     return true;
   }
 
@@ -737,11 +799,12 @@
     }
     meta.streak = streak;
     saveMeta();
-    var stat = shiftStat || { started: Date.now(), moves: 0, home: 0, denyFull: 0 };
+    var stat = shiftStat || { started: Date.now(), moves: 0, home: 0, denyFull: 0, denyZone: 0 };
     logEvent('shift_end', { shift: state.shiftIdx + 1, status: status, reason: reason || null,
       revenue: Math.round(state.revenue), served: state.served, goal: state.goal,
       lost: state.lost, combo: bestCombo, streak: streak, moves: stat.moves, home: stat.home,
-      denyFull: stat.denyFull, sec: Math.round((Date.now() - stat.started) / 1000) });
+      denyFull: stat.denyFull, denyZone: stat.denyZone,
+      sec: Math.round((Date.now() - stat.started) / 1000) });
     shiftStat = null;
     if (window.console) console.log('[playtest] shift', state.shiftIdx + 1, status,
       'revenue', Math.round(state.revenue), 'served', state.served, 'streak', streak);
@@ -1152,7 +1215,7 @@
     g.roundRect(PANEL_X - 6, TRAY_PANEL_Y, PANEL_W + 12, 206, 26).stroke({ width: 5, color: C.woodDark });
     layers.trayStatic.addChild(g);
 
-    var cap = label('ПРИЛАВОК · три одинаковых = продажа', 17, 0xFFE9C4, '800');
+    var cap = label('КАЖДЫЙ ТОВАР В СВОЮ ЗОНУ · ТРИ ОДИНАКОВЫХ = ПРОДАЖА', 15, 0xFFE9C4, '800');
     cap.anchor.set(0.5); cap.x = W / 2; cap.y = TRAY_PANEL_Y + 24;
     layers.trayStatic.addChild(cap);
 
@@ -1373,7 +1436,7 @@
       var r = zoneRange(z.id), free = false;
       for (var i = r.from; i < r.to; i++) if (state.tray[i] === null) free = true;
       var own = drag.product.section === z.id;
-      zoneNodes[z.id].hint.alpha = (over === z.id && free) ? 1 : (own && free ? 0.55 : 0);
+      zoneNodes[z.id].hint.alpha = own && free ? (over === z.id ? 1 : 0.6) : 0;
     });
   }
 
@@ -1944,25 +2007,37 @@
     for (var i = 0; i < visible.length; i++) {
       var p = productById(visible[i]);
       var onTray = state.tray.filter(function (c) { return c === p.id; }).length;
-      for (var z = 0; z < ZONES.length; z++) {
-        var zone = ZONES[z], r = zoneRange(zone.id);
-        var free = 0;
-        for (var k = r.from; k < r.to; k++) if (state.tray[k] === null) free++;
-        if (!free) continue;
+      var zone = zoneById(p.section), r = zoneRange(zone.id);
+      var free = 0;
+      for (var k = r.from; k < r.to; k++) if (state.tray[k] === null) free++;
+      if (!free) continue;
 
-        var score = onTray * 18 + free * 3;
-        if (onTray === 2) score += 40;                        // добиваем тройку
-        if (p.section === zone.id) score += 12;               // своя зона
-        var ord = orderFor(p.id);
-        if (ord) score += 30 + Math.round(60 / Math.max(1, ord.patience));  // срочный заказ важнее
-        if (free === 1 && onTray < 2) score -= 22;            // не забивать зону зря
-        if (!best || score > best.score) best = { i: i, zone: zone.id, score: score };
-      }
+      var score = onTray * 18 + free * 3;
+      if (onTray === 2) score += 40;                          // добиваем тройку
+      var ord = orderFor(p.id);
+      if (ord) score += 30 + Math.round(60 / Math.max(1, ord.patience));  // срочный заказ важнее
+      if (free === 1 && onTray < 2) score -= 22;              // не забивать зону зря
+      if (!best || score > best.score) best = { i: i, zone: zone.id, score: score };
     }
-    if (!best) return false;
+    if (!best) return unblock();
     state.selected = null;
     select('belt', best.i);
     return place(best.zone);
+  }
+
+  // Выложить нечего: с жёсткими зонами это нормальный ход игры, и выход из него
+  // — бустеры. Бот без них занижал бы винрейт, поэтому ходит ими в том же
+  // порядке, что и человек: перемешать завоз, убрать лишнее, отменить ход.
+  function unblock() {
+    if (state.boosters.shuffle && state.belt.length > beltVisible() && boosterShuffle()) return true;
+    if (state.boosters.fridge && state.fridge.length < fridgeSize() && state.belt.length) {
+      state.selected = null;
+      select('belt', 0);
+      if (boosterFridge()) return true;
+      state.selected = null;
+    }
+    if (state.boosters.undo && state.lastPlacement && boosterUndo()) return true;
+    return false;
   }
 
   function boot() {
@@ -2029,6 +2104,7 @@
         shop: showShop, buy: buyUpgrade, zoneUnder: zoneUnder,
         fridgeSize: fridgeSize, beltVisible: beltVisible, traySize: traySize,
         zoneRange: zoneRange, zoneOfSlot: zoneOfSlot, pullDemanded: pullDemanded,
+        section: function (id) { return productById(id).section; },
         // ручка для замеров баланса: 0 — завоз как есть, 0.7 — рабочее значение
         demandPull: function (v) { if (v != null) DEMAND_PULL = v; return DEMAND_PULL; },
         startShift: function (i, seed) { hideOverlay(); startShift(i, seed); rebuildBoard(); render(); },

@@ -67,7 +67,7 @@ const patience = await page.evaluate(() => {
   const st = P.state;
   st.customers.forEach(c => { c.patience = 1; });
   P.select('belt', 0);
-  P.place('grocery');
+  P.place(P.section(st.belt[0]));
   return { lost: st.lost, combo: st.combo, queue: st.customers.length };
 });
 console.log('терпение', JSON.stringify(patience));
@@ -79,33 +79,99 @@ const lose = await page.evaluate(() => {
   const st = P.state;
   st.customers.forEach(c => { c.patience = 9999; });   // проверяем именно забитый прилавок
   const uniq = [...new Set(st.belt)];
-  // забиваем прилавок парами (тройка бы продалась), оставляя один слот
-  const fill = [];
-  for (const id of uniq) { fill.push(id, id); if (fill.length >= st.tray.length - 1) break; }
-  for (let i = 0; i < st.tray.length - 1; i++) st.tray[i] = fill[i];
-  const spare = uniq.find(id => !fill.includes(id));
+  const zones = ['dairy','grocery','produce'];
+  const zone = zones.find(z => uniq.some(id => P.section(id) === z));
+  const spare = uniq.find(id => P.section(id) === zone);
+  const rest = uniq.filter(id => id !== spare);
+  if (!spare || !rest.length) return { skipped: true };
+  // забиваем все слоты кроме последнего в зоне запасного товара, троек не собираем
+  const r = P.zoneRange(zone);
+  const freeSlot = r.to - 1;
+  for (let i = 0, k = 0; i < st.tray.length; i++) {
+    if (i === freeSlot) continue;
+    st.tray[i] = rest[k % rest.length]; k++;
+  }
+  const triples = uniq.some(id => st.tray.filter(t => t === id).length >= 3);
+  const before = { status: st.status, free: st.tray.filter(c => c === null).length, triples };
   st.belt[0] = spare;
-  const before = { status: st.status, free: st.tray.filter(c => c === null).length };
   P.select('belt', 0);
-  P.place(P.zoneOfSlot(st.tray.length - 1));
-  return { before, status: st.status, filled: st.tray.filter(Boolean).length, slots: st.tray.length };
+  P.place(zone);
+  return { before, zone, spare, status: st.status,
+           filled: st.tray.filter(Boolean).length, slots: st.tray.length };
 });
 console.log('проигрыш', JSON.stringify(lose));
-if (lose.before.free !== 1 || lose.before.status !== 'playing') fail('тест собран неверно: прилавок не был почти полон');
+if (lose.skipped) fail('тест собран неверно: не нашлось запасного товара');
+if (lose.before.free !== 1 || lose.before.triples) fail('тест собран неверно: прилавок собран с тройкой или не полон');
 if (lose.status !== 'lost' || lose.filled !== lose.slots) fail('смена не проигрывается при забитом прилавке');
 
-// 6. бот проходит смену целиком
-const auto = await page.evaluate(() => {
+// 6. товар не ложится в чужую зону
+const zoning = await page.evaluate(() => {
   const P = window.__proto; P.startShift(0, 4242);
+  const st = P.state;
+  const id = st.belt[0];
+  const own = P.section(id);
+  const alien = ['dairy','grocery','produce'].find(z => z !== own);
+  P.select('belt', 0);
+  const refused = P.place(alien);
+  const afterAlien = st.tray.filter(Boolean).length;
+  const accepted = P.place(own);
+  return { id, own, alien, refused, afterAlien, accepted,
+           afterOwn: st.tray.filter(Boolean).length,
+           inOwnZone: P.section(st.tray.find(Boolean)) === own,
+           selectionKept: afterAlien === 0 };
+});
+console.log('зоны', JSON.stringify(zoning));
+if (zoning.refused !== false || zoning.afterAlien !== 0) fail('товар лёг в чужую зону');
+if (zoning.accepted !== true || zoning.afterOwn !== 1 || !zoning.inOwnZone) fail('товар не лёг в свою зону');
+
+// 7. тупик: своя зона забита, выложить нечего и нечем — смена закрывается
+const stuck = await page.evaluate(() => {
+  const P = window.__proto; P.startShift(0, 4242);
+  const st = P.state;
+  st.customers.forEach(c => { c.patience = 9999; });
+  st.boosters.undo = 0; st.boosters.fridge = 0; st.boosters.shuffle = 0;
+  const zones = ['dairy','grocery','produce'];
+  const byZone = z => [...new Set(st.belt)].filter(id => P.section(id) === z);
+  const zone = zones.find(z => byZone(z).length >= 2);
+  if (!zone) return { skipped: true };
+  const ids = byZone(zone);
+  const r = P.zoneRange(zone);
+  // забиваем зону, оставляя один слот и не собирая тройку
+  for (let i = r.from, k = 0; i < r.to - 1; i++, k++) st.tray[i] = ids[k % 2];
+  const last = ids.find(id => st.tray.filter(t => t === id).length < 2);
+  if (!last) return { skipped: true };
+  st.belt = st.belt.filter(id => P.section(id) === zone);   // на завозе только эта зона
+  st.belt.unshift(last);
+  const before = { free: st.tray.filter(c => c === null).length, status: st.status };
+  P.select('belt', 0);
+  P.place(zone);                                            // последний слот зоны закрывается
+  return { zone, last, before, status: st.status, free: st.tray.filter(c => c === null).length };
+});
+console.log('тупик', JSON.stringify(stuck));
+if (stuck.skipped) fail('тест собран неверно: не нашлось зоны с двумя типами товара');
+if (stuck.before.status !== 'playing') fail('тест собран неверно: смена уже кончилась');
+if (stuck.status !== 'lost') fail('смена зависла: выложить нечего, но проигрыша нет');
+
+// 8. бот проходит первую смену на большинстве сидов
+const auto = await page.evaluate(() => {
+  const P = window.__proto;
+  const runs = [];
+  for (const seed of [4242, 77, 1234, 909, 31337]) {
+    P.startShift(0, seed);
+    let steps = 0;
+    while (P.state.status === 'playing' && steps < 400) { if (!P.autoStep()) break; steps++; }
+    runs.push({ seed, steps, status: P.state.status, served: P.state.served, goal: P.state.goal });
+  }
+  P.startShift(0, 4242);
   let steps = 0;
   while (P.state.status === 'playing' && steps < 400) { if (!P.autoStep()) break; steps++; }
-  return { steps, status: P.state.status, served: P.state.served, goal: P.state.goal,
-           revenue: Math.round(P.state.revenue), streak: P.streak };
+  return { runs, wins: runs.filter(r => r.status === 'won').length,
+           lastRevenue: Math.round(P.state.revenue), streak: P.streak };
 });
-console.log('автопрохождение', JSON.stringify(auto));
-if (auto.status !== 'won') fail('бот не смог закрыть первую смену');
+console.log('автопрохождение', JSON.stringify({ wins: auto.wins, runs: auto.runs.map(r => r.status) }));
+if (auto.wins < 3) fail('бот закрывает первую смену реже чем на трёх сидах из пяти');
 
-// 7. мета: выручка в кассе, апгрейд прилавка расширяет его
+// 9. мета: выручка в кассе, апгрейд прилавка расширяет его
 const metaCheck = await page.evaluate(() => {
   const P = window.__proto;
   const walletAfterWin = Math.round(P.meta.wallet);
@@ -124,7 +190,7 @@ if (metaCheck.walletAfterWin <= 0) fail('выручка не попала в к�
 if (!metaCheck.trayGrew || !metaCheck.beltGrew || !metaCheck.fridgeGrew || metaCheck.boosters.undo !== 2)
   fail('апгрейды не применились к смене');
 
-// 8. поздние смены остаются решаемыми
+// 10. поздние смены остаются решаемыми
 const endless = await page.evaluate(() => {
   const P = window.__proto;
   P.startShift(19);
@@ -135,7 +201,7 @@ const endless = await page.evaluate(() => {
 console.log('бесконечные смены', JSON.stringify(endless));
 if (!endless.solvable || !endless.mod3) fail('поздние смены нерешаемы');
 
-// 9. нужный товар подтягивается из глубины завоза, состав завоза не меняется
+// 11. нужный товар подтягивается из глубины завоза, состав завоза не меняется
 const demand = await page.evaluate(() => {
   const P = window.__proto; P.startShift(1, 9001);
   const st = P.state;
@@ -162,14 +228,16 @@ if (!demand.visibleAfter || demand.pulls < 1) fail('нужный товар не
 if (demand.pulls > 1) fail('подтягивание сработало повторно, хотя нужное уже под рукой');
 if (!demand.sameComposition) fail('состав завоза изменился — смена может стать нерешаемой');
 
-// 10. журнал плейтеста: события смены, сводка, выгрузка и панель
+// 12. журнал плейтеста: события смены, сводка, выгрузка и панель
 const journal = await page.evaluate(() => {
   const P = window.__proto;
   P.log.clear();
   P.startShift(0, 4242);
   let steps = 0;
+  let undone = false;
   while (P.state.status === 'playing' && steps < 400) {
-    if (steps === 3) P.booster.undo();          // тяга к «Вернуть» должна попасть в журнал
+    // «Вернуть» должно попасть в журнал; после продажи возвращать нечего, поэтому пробуем до успеха
+    if (!undone && steps > 2 && P.booster.undo()) undone = true;
     if (!P.autoStep()) break;
     steps++;
   }
@@ -195,7 +263,7 @@ if (!journal.booster || journal.booster.kind !== 'undo' || typeof journal.booste
 if (!journal.textOk) fail('выгрузка журнала не разбирается как JSON');
 if (!journal.panelOpen || !journal.panelClosed) fail('панель журнала не открывается или не закрывается');
 
-// 11. журнал переживает перезагрузку — плейтест идёт в несколько заходов
+// 13. журнал переживает перезагрузку — плейтест идёт в несколько заходов
 await page.reload();
 await page.waitForFunction(() => window.__proto, null, { timeout: 15000 });
 const persisted = await page.evaluate(() => {
