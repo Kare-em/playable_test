@@ -461,6 +461,20 @@ console.log('оборванный жест', JSON.stringify(ghost));
 if (ghost.during < 1) fail('призрак перетаскивания не появился — тест ничего не проверил');
 if (ghost.after !== 0) fail('после обрыва жеста спрайт остался висеть над залом');
 
+// 22. смена ориентации: раскладка переезжает и холст остаётся в экране
+const flip = await page.evaluate(() => window.__proto.layout());
+await page.setViewportSize({ width: 900, height: 420 });
+await page.waitForTimeout(400);
+const land = await page.evaluate(() => window.__proto.layout());
+await page.setViewportSize({ width: 420, height: 860 });
+await page.waitForTimeout(400);
+const port = await page.evaluate(() => window.__proto.layout());
+console.log('раскладка', JSON.stringify({ start: flip.portrait, land: land, port: port.portrait }));
+if (!flip.portrait) fail('узкий экран должен открываться в портретной раскладке');
+if (land.portrait || land.cols !== 1 || land.btnRow) fail('в горизонте очередь идёт одной колонкой');
+if (!port.portrait || port.cols !== 2 || !port.btnRow) fail('в портрете очередь в две колонки, бустеры рядом');
+if (land.canvas > 900 + 1) fail('холст шире окна: масштаб не подогнан');
+
 await page.screenshot({ path: '/tmp/smoke-final.png' });
 await browser.close();
 console.log('ошибки в консоли:', errors.length ? errors : 'нет');

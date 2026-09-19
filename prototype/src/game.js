@@ -1157,42 +1157,187 @@
 
   /* -------------------------------------------------------------- геометрия */
 
-  /* Горизонт 1280×720: слева колонка очереди, справа стеллаж с отделами,
-     под ним коробка завоза и холодильник, бустеры — колонкой у правого края. */
-  var HUD_H = 84, SIGN_Y = 94, SIGN_H = 42;
-  var QUEUE_X0 = 14, QUEUE_Y = 94, QUEUE_W = 292, QUEUE_GAP = 8;
-  var QUEUE_BOTTOM = 706;
+  /* Раскладка считается от размера окна, а не от фиксированных 1280×720.
+     В горизонте очередь идёт колонкой слева, стеллаж и коробка завоза справа,
+     бустеры — колонкой у края. В портрете очередь переезжает наверх в две
+     колонки, стеллаж занимает всю ширину, а бустеры становятся рядом внизу. */
+  var PORTRAIT = false, lastFit = '';
+  var HUD_H, SIGN_Y, SIGN_H;
+  var HUD_PLAN_X, HUD_PLAN_W, HUD_SEG_W, HUD_COMBO_X;
+  var QUEUE_X0, QUEUE_Y, QUEUE_AREA_W, QUEUE_AREA_H, QUEUE_COLS, QUEUE_CARD_W, QUEUE_CARD_H, QUEUE_GAP = 8;
+  var TRAY_PANEL_Y, TRAY_PANEL_H, TRAY_GAP = 6, ZONE_GAP = 14;
+  var PANEL_X, PANEL_W;
+  var BELT_PANEL_Y, BELT_Y, BELT_H, BELT_X, BELT_W, BELT_GAP = 8;
+  var FRIDGE_Y, FRIDGE_SLOT_W = 92, FRIDGE_SLOT_H;
+  var BTN_SIZE, BTN_GAP = 8, BTN_X0, BTN_Y, BTN_ROW = false;
+
+  // Логический размер холста повторяет пропорции окна в разумных пределах:
+  // так не остаётся чёрных полей ни на «квадратном» планшете, ни на 20:9.
+  function measure() {
+    var vw = Math.max(320, window.innerWidth || 1280);
+    var vh = Math.max(320, window.innerHeight || 720);
+    var a = vw / vh, portrait = a < 0.95, w, h;
+    if (portrait) {
+      w = 720;
+      h = Math.round(Math.max(920, Math.min(w * 1.85, w / a)));
+    } else {
+      h = 720;
+      w = Math.round(Math.max(980, Math.min(1640, h * a)));
+    }
+    var key = w + 'x' + h + (portrait ? 'p' : 'l');
+    var changed = key !== lastFit;
+    lastFit = key;
+    W = w; H = h; PORTRAIT = portrait;
+    return changed;
+  }
+
+  // Панели пересчитываются от холста, числа отделов и длины очереди.
+  function layout() {
+    HUD_H = 84;
+    SIGN_H = PORTRAIT ? 36 : 42;
+    SIGN_Y = HUD_H + 10;
+    BELT_H = PORTRAIT ? 106 : 116;
+    FRIDGE_SLOT_H = PORTRAIT ? 68 : 72;
+    QUEUE_X0 = 14;
+    QUEUE_COLS = PORTRAIT ? 2 : 1;
+
+    if (PORTRAIT) layoutPortrait(); else layoutLandscape();
+
+    BELT_Y = BELT_PANEL_Y + 42;
+    FRIDGE_Y = BELT_PANEL_Y + BELT_H + 64;
+    layoutHud();
+  }
+
+  // Горизонт: очередь — колонкой слева, всё остальное справа от неё.
+  function layoutLandscape() {
+    BTN_ROW = false;
+    BTN_SIZE = 86;
+    BELT_PANEL_Y = H - 8 - BELT_H - 150;
+    QUEUE_Y = SIGN_Y;
+    QUEUE_AREA_W = Math.max(258, Math.min(330, Math.round(W * 0.24)));
+    QUEUE_AREA_H = H - QUEUE_Y - 14;
+    QUEUE_CARD_W = QUEUE_AREA_W;
+    PANEL_X = QUEUE_X0 + QUEUE_AREA_W + 14;
+    PANEL_W = W - PANEL_X - 14;
+    BELT_X = PANEL_X;
+    BELT_W = PANEL_W - (BTN_SIZE + 70);
+    BTN_X0 = BELT_X + BELT_W + 35;
+    BTN_Y = Math.min(BELT_PANEL_Y - 8, H - 10 - (BTN_SIZE * 3 + BTN_GAP * 2));
+    TRAY_PANEL_Y = SIGN_Y + SIGN_H + 10;
+    TRAY_PANEL_H = BELT_PANEL_Y - TRAY_PANEL_Y - 18;
+    QUEUE_CARD_H = Math.min(168,
+      Math.floor((QUEUE_AREA_H - QUEUE_GAP * (queueSize() - 1)) / queueSize()));
+  }
+
+  /* Портрет: сверху очередь в две колонки, под ней стеллаж во всю ширину,
+     ниже коробка завоза с холодильником и ряд бустеров. Блоки укладываются
+     сверху вниз, а лишняя высота расходится по промежуткам — так экран не
+     разрывает пустой полкой ни на вытянутом телефоне, ни на планшете 3:4. */
+  function layoutPortrait() {
+    BTN_ROW = true;
+    var qRows = queueRows(), zRows = trayRows();
+    var topY = SIGN_Y + SIGN_H + 10;
+    var trayFixed = (zRows > 1 ? 78 : 104) + 42 * (zRows - 1) + 24;
+    var qMin = qRows * 98 + QUEUE_GAP * (qRows - 1);
+    var trayMin = trayFixed + zRows * 62;
+    var beltBlock = BELT_H + 150;                 // коробка завоза и холодильник
+    var btnMin = 72;
+
+    // «Короткий» портрет (планшет 3:4): холст тянем выше окна, поля уйдут вбок.
+    var need = topY + qMin + trayMin + beltBlock + btnMin + 14 * 4 + 12;
+    if (need > H) {
+      var a = W / H;
+      H = need;
+      W = Math.round(Math.max(720, Math.min(1180, H * a)));
+    }
+
+    PANEL_X = 14; PANEL_W = W - 28;
+    BELT_X = 14; BELT_W = W - 28;
+    QUEUE_Y = topY; QUEUE_AREA_W = W - 28;
+    // карточку шире 400 некуда наполнять — держим ряд по центру
+    QUEUE_CARD_W = Math.min(400, Math.floor((QUEUE_AREA_W - QUEUE_GAP * (QUEUE_COLS - 1)) / QUEUE_COLS));
+    QUEUE_X0 = Math.round((W - (QUEUE_CARD_W * QUEUE_COLS + QUEUE_GAP * (QUEUE_COLS - 1))) / 2);
+    BTN_SIZE = Math.min(86, Math.floor((W - 40 - BTN_GAP * 2) / 3));
+    BTN_X0 = Math.round((W - (BTN_SIZE * 3 + BTN_GAP * 2)) / 2);
+
+    var qWant = qRows * 190 + QUEUE_GAP * (qRows - 1);
+    var trayWant = trayFixed + zRows * idealSlotH();
+    var space = H - 12 - topY - beltBlock - BTN_SIZE - 14 * 4;
+    var over = (qWant + trayWant) - space;
+    if (over > 0) {                               // не влезает — ужимаем оба блока
+      var slackQ = qWant - qMin, slackT = trayWant - trayMin;
+      var cutQ = Math.min(slackQ, Math.round(over * slackQ / Math.max(1, slackQ + slackT)));
+      if (over - cutQ > slackT) cutQ = Math.min(slackQ, over - slackT);
+      qWant -= cutQ;
+      trayWant -= Math.min(slackT, over - cutQ);
+    }
+    var gap = Math.min(30, 14 + Math.max(0, space - qWant - trayWant) / 4);
+
+    QUEUE_CARD_H = Math.floor((qWant - QUEUE_GAP * (qRows - 1)) / qRows);
+    QUEUE_AREA_H = qRows * (QUEUE_CARD_H + QUEUE_GAP) - QUEUE_GAP;
+    TRAY_PANEL_Y = Math.round(QUEUE_Y + QUEUE_AREA_H + gap);
+    TRAY_PANEL_H = Math.round(trayWant);
+    BELT_PANEL_Y = Math.round(TRAY_PANEL_Y + TRAY_PANEL_H + gap);
+    BTN_Y = Math.round(BELT_PANEL_Y + beltBlock + gap - 6);
+  }
+
+  // Верхняя панель ужимается на узком холсте: план, комбо и «жизни» в один ряд.
+  function layoutHud() {
+    var narrow = W < 1040;
+    HUD_SEG_W = narrow ? 22 : 38;
+    HUD_PLAN_X = narrow ? 160 : 220;
+    var end = W - 206, segs = 4 * (HUD_SEG_W + 5) + 58;
+    HUD_PLAN_W = Math.max(120, Math.min(300, end - HUD_PLAN_X - segs - 18));
+    HUD_COMBO_X = HUD_PLAN_X + HUD_PLAN_W + 18;
+  }
 
   function queueGap() { return QUEUE_GAP; }
-  function queueW() { return QUEUE_W; }
-  function queueH() {
-    var n = queueSize();
-    return Math.min(168, Math.floor((QUEUE_BOTTOM - QUEUE_Y - QUEUE_GAP * (n - 1)) / n));
+  function queueCols() { return QUEUE_COLS; }
+  function queueRows() { return Math.ceil(queueSize() / QUEUE_COLS); }
+  function queueW() { return QUEUE_CARD_W; }
+  function queueH() { return QUEUE_CARD_H; }
+  function queueX(i) { return QUEUE_X0 + ((i || 0) % QUEUE_COLS) * (queueW() + QUEUE_GAP); }
+  function queueY(i) { return QUEUE_Y + Math.floor((i || 0) / QUEUE_COLS) * (queueH() + QUEUE_GAP); }
+
+  // Прилавок: в горизонте до трёх отделов в ряд, в портрете — по два.
+  function trayRows() {
+    var n = activeZones().length;
+    return PORTRAIT ? Math.ceil(n / 2) : (n > 3 ? 2 : 1);
   }
-  function queueX() { return QUEUE_X0; }
-  function queueY(i) { return QUEUE_Y + i * (queueH() + QUEUE_GAP); }
-
-  var TRAY_PANEL_Y = 146, TRAY_H = 84, TRAY_GAP = 6, ZONE_GAP = 14;
-
-  // Прилавок: до трёх отделов — один ряд. С мясным отделом их четыре, и он
-  // раскладывается в два ряда по два, а ячейки становятся чуть ниже.
-  function trayRows() { return activeZones().length > 3 ? 2 : 1; }
   function zonesPerRow() { return Math.ceil(activeZones().length / trayRows()); }
-  // Стеллаж занимает одну и ту же высоту при любом числе отделов: с одним
-  // рядом ячейки просто выше, и зал не разрывает пустотой.
-  function trayH() { return trayRows() > 1 ? 76 : 148; }
+  // Высота ячейки — сколько влезает в стеллаж, но не выше полутора ширин,
+  // иначе на высоком экране полка растягивается в пустоту.
+  function idealSlotH() { return Math.round(traySlotW() * (PORTRAIT ? 2 : 1.45)); }
+  function trayH() {
+    var rows = trayRows(), top = rows > 1 ? 78 : 104, bm = rows > 1 ? 16 : 36;
+    var fit = Math.floor((TRAY_PANEL_H - top - 42 * (rows - 1) - bm) / rows);
+    return Math.max(58, Math.min(fit, idealSlotH()));
+  }
   function trayPanelY() { return TRAY_PANEL_Y; }
   function trayRowH() { return trayH() + 42; }
-  function trayPanelH() { return 288; }
+  function trayPanelH() { return TRAY_PANEL_H; }
   function trayTop() { return trayPanelY() + (trayRows() > 1 ? 78 : 104); }
   function trayRowY(row) { return trayTop() + row * trayRowH(); }
+  function btnY(i) { return BTN_ROW ? BTN_Y : BTN_Y + i * (BTN_SIZE + BTN_GAP); }
+  function btnX(i) { return BTN_ROW ? BTN_X0 + i * (BTN_SIZE + BTN_GAP) : BTN_X0; }
+
+  // Ширина ряда отделов: неполный ряд центрируется по стеллажу.
+  function rowOffset(row) {
+    var zs = activeZones(), per = zonesPerRow(), w = traySlotW(), used = 0, count = 0;
+    for (var q = row * per; q < Math.min(zs.length, (row + 1) * per); q++) {
+      used += zoneSlots(zs[q]) * (w + TRAY_GAP) - TRAY_GAP;
+      count++;
+    }
+    used += ZONE_GAP * Math.max(0, count - 1);
+    return PANEL_X + 8 + Math.max(0, Math.round((PANEL_W - 16 - used) / 2));
+  }
 
   function slotPos(i) {
     var zs = activeZones(), per = zonesPerRow(), w = traySlotW(), idx = 0;
     for (var z = 0; z < zs.length; z++) {
       var n = zoneSlots(zs[z]);
       if (i < idx + n) {
-        var row = Math.floor(z / per), x = PANEL_X + 8;
+        var row = Math.floor(z / per), x = rowOffset(row);
         for (var q = row * per; q < z; q++) x += zoneSlots(zs[q]) * (w + TRAY_GAP) - TRAY_GAP + ZONE_GAP;
         return { x: x + (i - idx) * (w + TRAY_GAP), y: trayRowY(row) };
       }
@@ -1201,13 +1346,6 @@
     return { x: PANEL_X + 8, y: trayRowY(0) };
   }
   function slotY(i) { return slotPos(i).y; }
-  var BELT_PANEL_Y = 452, BELT_Y = 494, BELT_H = 116, BELT_GAP = 8;
-  var FRIDGE_Y = 632, FRIDGE_SLOT_W = 92, FRIDGE_SLOT_H = 72;
-  // Бустеры — значками без подписей: колонка квадратных кнопок у правого края.
-  var BTN_SIZE = 86, BTN_GAP = 8, BTN_Y = 438, BTN_X0 = 1113;
-  function btnY(i) { return BTN_Y + i * (BTN_SIZE + BTN_GAP); }
-  var PANEL_X = 320, PANEL_W = 946;          // стеллаж
-  var BELT_X = 320, BELT_W = 700;            // завоз и холодильник уже стеллажа
 
   // Ширина ячейки считается по самому плотному ряду, чтобы ряды были ровными.
   function traySlotW() {
@@ -1805,15 +1943,16 @@
     // потолочные лампы зала: холодная засветка сверху
     bg.ellipse(W / 2, 20, W * 0.7, 70).fill({ color: 0xFFF6DF, alpha: 0.7 });
     // дальние стеллажи зала — чуть намеченные вертикали, чтобы был объём помещения
-    for (var wx = 320; wx < W; wx += 132) {
+    for (var wx = PANEL_X; wx < W; wx += 132) {
       bg.rect(wx, SIGN_Y + 10, 78, 200).fill({ color: C.steel, alpha: 0.08 });
       bg.rect(wx, SIGN_Y + 10, 78, 6).fill({ color: C.steelDark, alpha: 0.09 });
     }
     // пол виден узкой полосой снизу
-    bg.rect(0, 692, W, H - 692).fill(C.floor);
-    bg.rect(0, 692, W, 6).fill({ color: 0xFFFFFF, alpha: 0.35 });
+    var floorY = PORTRAIT ? Math.min(H - 28, BTN_Y + BTN_SIZE + 22) : H - 28;
+    bg.rect(0, floorY, W, H - floorY).fill(C.floor);
+    bg.rect(0, floorY, W, 6).fill({ color: 0xFFFFFF, alpha: 0.35 });
     for (var fx2 = 30; fx2 < W; fx2 += 150) {
-      bg.rect(fx2, 698, 3, H - 698).fill({ color: 0x6E4318, alpha: 0.22 });
+      bg.rect(fx2, floorY + 6, 3, H - floorY - 6).fill({ color: 0x6E4318, alpha: 0.22 });
     }
     root.addChild(bg);
 
@@ -1823,6 +1962,7 @@
     layers.trayStatic = new PIXI.Container();
     root.addChild(layers.trayStatic);
     buildTray();
+    root.addChild(hud.sale);              // строка акции — поверх планки стеллажа
 
     buildBeltTray();
 
@@ -1845,11 +1985,32 @@
     root.addChild(overlay);
   }
 
-  // Прилавок и холодильник меняют размер от апгрейдов — перестраиваем на старте смены.
+  // Прилавок, очередь и холодильник меняются от апгрейдов — пересчитываем
+  // раскладку и собираем сцену заново.
   function rebuildBoard() {
     if (!layers.trayStatic) return;
-    buildTray();
-    buildFridge();
+    layout();
+    fitScale();                        // портрет может растянуть холст под контент
+    rebuildScene();
+  }
+
+  var overlayKind = null;              // что показать заново после пересборки
+
+  // Смена ориентации или размера окна: старую сцену выбрасываем целиком —
+  // статика нарисована под конкретную геометрию.
+  function rebuildScene() {
+    if (!root) return;
+    cancelDrag();
+    anims.length = 0;
+    root.removeChildren().forEach(function (k) {
+      try { k.destroy({ children: true }); } catch (e) {}
+    });
+    layers = {}; hud = {}; zoneNodes = {}; beltNodes = [];
+    selectedNode = null; signNode = null; toastBox = null; overlay = null;
+    buildStatic();
+    render();
+    if (overlayKind === 'shop') showShop();
+    else if (overlayKind) showOverlay(overlayKind.status, overlayKind.reason);
   }
 
   function buildHud() {
@@ -1883,14 +2044,14 @@
     root.addChild(hud.planBar);
     hud.planText = label('', 16, C.hudInk, '700');
     hud.planText.anchor.set(0.5);
-    hud.planText.x = 370; hud.planText.y = 42;
+    hud.planText.x = HUD_PLAN_X + HUD_PLAN_W / 2; hud.planText.y = 42;
     root.addChild(hud.planText);
 
     hud.comboBar = new PIXI.Graphics();
     root.addChild(hud.comboBar);
     hud.comboText = label('', 18, C.hudInkSoft, '800');
     hud.comboText.anchor.set(0, 0.5);
-    hud.comboText.x = 742; hud.comboText.y = 42;
+    hud.comboText.x = HUD_COMBO_X + 4 * (HUD_SEG_W + 5) + 6; hud.comboText.y = 42;
     root.addChild(hud.comboText);
 
     hud.lives = new PIXI.Graphics();
@@ -1898,7 +2059,9 @@
 
     hud.sale = label('', 16, C.gold, '800');
     hud.sale.anchor.set(0.5);
-    hud.sale.x = PANEL_X + PANEL_W / 2; hud.sale.y = SIGN_Y + SIGN_H + 4;
+    // «Акция дня» занимает планку стеллажа: там её видно в любой раскладке
+    hud.sale.x = PANEL_X + PANEL_W / 2;
+    hud.sale.y = TRAY_PANEL_Y + 22;
     hud.sale.visible = false;
     root.addChild(hud.sale);
 
@@ -1973,9 +2136,11 @@
     g.rect(PANEL_X - 10, py + 4, PANEL_W + 20, 3).fill({ color: 0xFFFFFF, alpha: 0.4 });
     layers.trayStatic.addChild(g);
 
-    var cap = label('КАЖДЫЙ ТОВАР В СВОЙ ОТДЕЛ · ТРИ ОДИНАКОВЫХ = ПРОДАЖА', 15, 0xE7EFF5, '800');
-    cap.anchor.set(0.5); cap.x = W / 2; cap.y = trayPanelY() + 22;
+    var cap = label(PORTRAIT ? 'КАЖДЫЙ ТОВАР В СВОЙ ОТДЕЛ' :
+      'КАЖДЫЙ ТОВАР В СВОЙ ОТДЕЛ · ТРИ ОДИНАКОВЫХ = ПРОДАЖА', 15, 0xE7EFF5, '800');
+    cap.anchor.set(0.5); cap.x = PANEL_X + PANEL_W / 2; cap.y = trayPanelY() + 22;
     layers.trayStatic.addChild(cap);
+    hud.trayCap = cap;
 
     var w = traySlotW();
     activeZones().forEach(function (z) {
@@ -2166,9 +2331,9 @@
 
     var b = state.boosters, playing = state.status === 'playing';
     layers.buttons.addChild(
-      iconButton(BTN_X0, btnY(0), 'undo', b.undo, b.undo > 0 && playing, boosterUndo),
-      iconButton(BTN_X0, btnY(1), 'fridge', b.fridge, b.fridge > 0 && playing, boosterFridge),
-      iconButton(BTN_X0, btnY(2), 'shuffle', b.shuffle, b.shuffle > 0 && playing, boosterShuffle)
+      iconButton(btnX(0), btnY(0), 'undo', b.undo, b.undo > 0 && playing, boosterUndo),
+      iconButton(btnX(1), btnY(1), 'fridge', b.fridge, b.fridge > 0 && playing, boosterFridge),
+      iconButton(btnX(2), btnY(2), 'shuffle', b.shuffle, b.shuffle > 0 && playing, boosterShuffle)
     );
   }
 
@@ -2325,7 +2490,7 @@
     for (var i = 0; i < queueSize(); i++) {
       var c = state.customers[i];
       var box = new PIXI.Container();
-      box.x = queueX(); box.y = queueY(i);
+      box.x = queueX(i); box.y = queueY(i);
 
       var g = new PIXI.Graphics();
       g.roundRect(3, 6, qw, qh, 20).fill({ color: 0x3A2717, alpha: 0.22 });
@@ -2472,7 +2637,7 @@
     hud.shift.text = 'Смена ' + (state.shiftIdx + 1);
     hud.streak.text = 'смен подряд: ' + streak;
 
-    var bx = 220, by = 30, bw = 300, bh = 24;
+    var bx = HUD_PLAN_X, by = 30, bw = HUD_PLAN_W, bh = 24;
     var p = Math.min(state.served / state.goal, 1);
     hud.planBar.clear();
     hud.planBar.roundRect(bx, by, bw, bh, 5).fill(C.hudTrack);
@@ -2480,7 +2645,7 @@
     hud.planBar.roundRect(bx, by, bw, bh, 5).stroke({ width: 3, color: C.steel, alpha: 0.8 });
     hud.planText.text = 'Обслужено  ' + state.served + ' / ' + state.goal;
 
-    var cx = 570, segs = 4, sw = 38, gap = 5;
+    var cx = HUD_COMBO_X, segs = 4, sw = HUD_SEG_W, gap = 5;
     hud.comboBar.clear();
     for (var i = 0; i < segs; i++) {
       var on = state.combo > i;
@@ -2507,6 +2672,7 @@
     } else {
       hud.sale.visible = false;
     }
+    if (hud.trayCap) hud.trayCap.visible = !hud.sale.visible;
   }
 
   /* ---------------------------------------------------------------- эффекты */
@@ -2578,7 +2744,7 @@
   // Товар улетает с полки к покупателю: видно, кто именно что забрал.
   function pickupFx(c, taken) {
     var idx = Math.max(0, state.customers.indexOf(c));
-    var to = { x: queueX() + 30, y: queueY(idx) + queueH() / 2 - 24 };
+    var to = { x: queueX(idx) + 30, y: queueY(idx) + queueH() / 2 - 24 };
     taken.forEach(function (t) {
       flyGhost(productById(t.id), { x: slotX(t.slot), y: slotY(t.slot) }, to, function () {});
     });
@@ -2835,6 +3001,7 @@
   }
 
   function showShop() {
+    overlayKind = 'shop';
     overlay.removeChildren();
     overlay.visible = true;
 
@@ -2842,7 +3009,12 @@
     dim.rect(0, 0, W, H).fill({ color: 0x0E1820, alpha: 0.74 });
     overlay.addChild(dim);
 
-    var pw = 1020, ph = 616, px = (W - pw) / 2, py = (H - ph) / 2;
+    // на узком экране апгрейды выстраиваются в две колонки
+    var cols = W < 940 ? 2 : 3, ch = 126, gap = 12;
+    var shopRows = Math.ceil(UPGRADES.length / cols);
+    var pw = Math.min(1020, W - 40);
+    var ph = Math.min(H - 40, 84 + shopRows * (ch + gap) + 96);
+    var px = (W - pw) / 2, py = (H - ph) / 2;
     var panel = new PIXI.Graphics();
     panel.roundRect(px + 6, py + 8, pw, ph, 18).fill({ color: 0x000000, alpha: 0.3 });
     panel.roundRect(px, py, pw, ph, 18).fill(C.panel);
@@ -2859,8 +3031,7 @@
     wallet.anchor.set(1, 0.5); wallet.x = px + pw - 24; wallet.y = py + 34;
     overlay.addChild(wallet);
 
-    // апгрейдов стало девять — раскладываем в три колонки
-    var cols = 3, cw = (pw - 20 * (cols + 1)) / cols, ch = 126, gap = 12;
+    var cw = (pw - 20 * (cols + 1)) / cols;
     UPGRADES.forEach(function (u, i) {
       var col = i % cols, row = Math.floor(i / cols);
       var x = px + 20 + col * (cw + 20), y = py + 84 + row * (ch + gap);
@@ -2907,7 +3078,7 @@
     });
 
     var next = meta.shiftIdx;
-    overlay.addChild(button(px + pw / 2 - 190, py + ph - 78, 380, 58,
+    overlay.addChild(button(px + pw / 2 - 190, py + ph - 90, 380, 58,
       'Открыть смену ' + (next + 1), null, true, function () {
         hideOverlay();
         startShift(next);
@@ -2916,13 +3087,13 @@
       }));
 
     var journal = label('журнал плейтеста', 14, C.inkSoft, '600');
-    journal.anchor.set(0, 0.5); journal.x = px + 24; journal.y = py + ph - 20;
+    journal.anchor.set(0, 0.5); journal.x = px + 24; journal.y = py + ph - 16;
     journal.eventMode = 'static'; journal.cursor = 'pointer';
     journal.on('pointertap', showLogPanel);
     overlay.addChild(journal);
 
     var reset = label('сбросить прогресс', 14, C.inkSoft, '600');
-    reset.anchor.set(1, 0.5); reset.x = px + pw - 24; reset.y = py + ph - 20;
+    reset.anchor.set(1, 0.5); reset.x = px + pw - 24; reset.y = py + ph - 16;
     reset.eventMode = 'static'; reset.cursor = 'pointer';
     reset.on('pointertap', function () {
       meta = defaultMeta(); streak = 0; totalRevenue = 0;
@@ -2937,6 +3108,7 @@
   /* ---------------------------------------------------------------- итоги */
 
   function showOverlay(status, reason) {
+    overlayKind = { status: status, reason: reason };
     overlay.removeChildren();
     overlay.visible = true;
 
@@ -2945,7 +3117,8 @@
     overlay.addChild(dim);
 
     var won = status === 'won';
-    var pw = 620, ph = 470, px = (W - pw) / 2, py = (H - ph) / 2;
+    var pw = Math.min(620, W - 40), ph = Math.min(470, H - 60);
+    var px = (W - pw) / 2, py = (H - ph) / 2;
 
     var panel = new PIXI.Graphics();
     panel.roundRect(px + 6, py + 8, pw, ph, 18).fill({ color: 0x000000, alpha: 0.3 });
@@ -2994,14 +3167,23 @@
     }
   }
 
-  function hideOverlay() { overlay.visible = false; overlay.removeChildren(); }
+  function hideOverlay() { overlayKind = null; overlay.visible = false; overlay.removeChildren(); }
 
   /* ------------------------------------------------------------------ boot */
 
-  function fit() {
+  function fitScale() {
     var s = Math.min(window.innerWidth / W, window.innerHeight / H);
     app.renderer.resize(Math.ceil(W * s), Math.ceil(H * s));
     root.scale.set(s);
+  }
+
+  // Окно поменяло размер или ориентацию: пересчитываем холст и, если раскладка
+  // сменилась, собираем сцену под неё заново.
+  function fit() {
+    var changed = measure();
+    if (changed) layout();
+    fitScale();
+    if (changed && layers.trayStatic) rebuildScene();
   }
 
   // Жадный бот для смоук-теста и замеров: добить тройку, попасть в свою зону,
@@ -3056,6 +3238,8 @@
   }
 
   function boot() {
+    measure();
+    layout();
     app = new PIXI.Application();
     app.init({
       width: W, height: H, background: C.wallBot,
@@ -3080,7 +3264,14 @@
       buildStatic();
       fit();
       loadArt().then(function () { render(); });
-      window.addEventListener('resize', fit);
+      var resizeTimer = null;
+      var onResize = function () {
+        fitScale();                            // масштаб подгоняем сразу
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(fit, 140);    // а пересборку — когда окно замерло
+      };
+      window.addEventListener('resize', onResize);
+      window.addEventListener('orientationchange', onResize);
 
       app.stage.eventMode = 'static';
       app.stage.hitArea = { contains: function () { return true; } };
@@ -3142,6 +3333,11 @@
         build: BUILD, metaResetFrom: function () { return metaResetFrom; },
         // для смоука: сколько спрайтов эффектов висит и где лежит коробка завоза
         fxCount: function () { return layers.fx ? layers.fx.children.length : 0; },
+        layout: function () {
+          return { w: W, h: H, portrait: PORTRAIT, cols: QUEUE_COLS,
+                   panelW: PANEL_W, trayRows: trayRows(), btnRow: BTN_ROW,
+                   canvas: app ? app.renderer.width : 0 };
+        },
         beltPos: function (i) { return beltSlotPos(i); },
         pagePoint: function (pt) {
           var r = app.canvas.getBoundingClientRect(), k = r.width / app.renderer.width;
