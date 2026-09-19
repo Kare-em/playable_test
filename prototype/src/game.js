@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  var W = 720, H = 1280;
+  var W = 1280, H = 720;          // горизонтальная раскладка
 
   // Отметка сборки. В исходниках это 'dev', а при сборке ссылки сюда
   // подставляется время публикации: новая сборка — новая отметка, и прогресс
@@ -27,8 +27,20 @@
     // четыре слота: тройку в своей зоне можно собрать, и ещё остаётся ход про запас
     { id: 'dairy',   name: 'Молочка', slots: 4, color: 0x1C6FD0, tint: 0xE8F0FA },
     { id: 'grocery', name: 'Бакалея', slots: 4, color: 0xC9720A, tint: 0xFBF0DE },
-    { id: 'produce', name: 'Овощи',   slots: 4, color: 0x2A8F3B, tint: 0xE6F4E8 }
+    { id: 'produce', name: 'Овощи',   slots: 4, color: 0x2A8F3B, tint: 0xE6F4E8 },
+    // мясной отдел открывается покупкой в магазине
+    { id: 'meat',    name: 'Мясо',    slots: 4, color: 0xB2382A, tint: 0xFBE4DF },
+    { id: 'chem',    name: 'Химия',   slots: 4, color: 0x2E7F9E, tint: 0xE2F0F6 }
   ];
+
+  // Зоны, которые сейчас работают: мясной прилавок появляется после покупки.
+  function activeZones() {
+    return ZONES.filter(function (z) {
+      if (z.id === 'meat') return meta.up.meat > 0;
+      if (z.id === 'chem') return meta.up.chem > 0;
+      return true;
+    });
+  }
 
   var PRODUCTS = [
     { id: 'milk',   name: 'Молоко',   glyph: '🥛', section: 'dairy',   price: 40, color: 0xC6E2FB, accent: 0x80C1FC },
@@ -42,7 +54,13 @@
     { id: 'apple',  name: 'Яблоко',   glyph: '🍎', section: 'produce', price: 35, color: 0xFBC2BF, accent: 0xFF675B },
     { id: 'carrot', name: 'Морковь',  glyph: '🥕', section: 'produce', price: 25, color: 0xFFD7AF, accent: 0xFF9B36 },
     { id: 'tomato', name: 'Помидор',  glyph: '🍅', section: 'produce', price: 40, color: 0xFFC2B5, accent: 0xFF4D3C },
-    { id: 'grape',  name: 'Виноград', glyph: '🍇', section: 'produce', price: 70, color: 0xDCC9F3, accent: 0xAA78E2 }
+    { id: 'grape',  name: 'Виноград', glyph: '🍇', section: 'produce', price: 70, color: 0xDCC9F3, accent: 0xAA78E2 },
+    { id: 'sausage',name: 'Колбаса',  glyph: '🌭', section: 'meat',    price: 80, color: 0xF3C7BE, accent: 0xC0503C },
+    { id: 'chicken',name: 'Курица',   glyph: '🍗', section: 'meat',    price: 90, color: 0xF7DCB4, accent: 0xD9963C },
+    { id: 'steak',  name: 'Стейк',    glyph: '🥩', section: 'meat',    price: 110, color: 0xF0BDB2, accent: 0xAE362A },
+    { id: 'soap',   name: 'Мыло',     glyph: '🧼', section: 'chem',    price: 60, color: 0xFCEFC4, accent: 0xE0B23A },
+    { id: 'powder', name: 'Порошок',  glyph: '🧴', section: 'chem',    price: 95, color: 0xCFE6F7, accent: 0x3E8FC6 },
+    { id: 'spray',  name: 'Спрей',    glyph: '🧽', section: 'chem',    price: 85, color: 0xD3F0E1, accent: 0x36A57C }
   ];
 
   // План смены — обслуженные покупатели, а не просто проданные тройки.
@@ -53,9 +71,9 @@
   // просрочку. Раньше завоз был вдвое больше спроса, и лишнее просто портилось.
   var SPARE = 6;               // запас сверх плана и полки, в штуках
   var SHIFTS = [
-    { types: 6,  crates: 30, goal: 4, patience: 14, visible: 5, lives: 4, sale: false },
-    { types: 9,  crates: 36, goal: 6, patience: 18, visible: 6, lives: 3, sale: false },
-    { types: 10, crates: 39, goal: 7, patience: 22, visible: 6, lives: 3, sale: true  }
+    { types: 6,  crates: 30, goal: 5, patience: 12, visible: 5, lives: 4, sale: false },
+    { types: 9,  crates: 36, goal: 7, patience: 13, visible: 6, lives: 3, sale: false },
+    { types: 10, crates: 39, goal: 9, patience: 13, visible: 6, lives: 3, sale: true  }
   ];
 
   var QUEUE_SIZE = 3;
@@ -63,8 +81,9 @@
   var FRIDGE_BASE = 3;
   var COMBO_MAX_MULT = 3;
   var COST_RATE = 0.4;         // себестоимость товара — доля от цены
-  var LIFE = { dairy: 7, grocery: 12, produce: 6 };   // срок годности в ходах
-  var DEMAND_PULL = 0.7;       // как часто нужный товар подтягивается из глубины завоза
+  // Бытовая химия практически не портится — в этом её смысл как отдела.
+  var LIFE = { dairy: 7, grocery: 12, produce: 6, meat: 5, chem: 30 };
+  var DEMAND_PULL = 0.35;      // как часто нужный товар подтягивается из глубины завоза
   var DEMAND_DEPTH = 12;       // насколько глубоко за ним лезем
   var ORDER_MULT = 1.5;        // бонус за заказ покупателя
   var ZONE_MULT = 1.5;         // бонус за выкладку в свою зону
@@ -123,6 +142,12 @@
     { id: 'cash',    name: 'Касса', max: 2, prices: [1800, 4000],
       effect: function (l) { return '+' + l + ' заряд бустерам'; },
       hint: 'Чаще пользуйтесь бустерами смены' },
+    { id: 'meat',    name: 'Мясной прилавок', max: 1, prices: [3000],
+      effect: function () { return 'открыт отдел мяса'; },
+      hint: 'Дорогой товар, но портится быстрее всех' },
+    { id: 'chem',    name: 'Отдел химии', max: 1, prices: [4200],
+      effect: function () { return 'открыт отдел бытовой химии'; },
+      hint: 'Дорогой товар, который почти не портится' },
     { id: 'ads',     name: 'Реклама', max: 2, prices: [1600, 3600],
       effect: function (l) { return '+' + l + ' покупатель в очереди'; },
       hint: 'Листовки приводят больше людей' },
@@ -137,7 +162,7 @@
 
   function defaultMeta() {
     return { build: BUILD, wallet: 0, shiftIdx: 0, streak: 0, total: 0,
-             up: { counter: 0, fridge: 0, cart: 0, cash: 0, ads: 0, sign: 0 } };
+             up: { counter: 0, fridge: 0, cart: 0, cash: 0, meat: 0, chem: 0, ads: 0, sign: 0 } };
   }
 
   function loadMeta() {
@@ -405,7 +430,7 @@
   function zoneSlots(zone) { return zone.slots + (zone.id === 'grocery' ? meta.up.counter : 0); }
   function traySize() {
     var n = 0;
-    ZONES.forEach(function (z) { n += zoneSlots(z); });
+    activeZones().forEach(function (z) { n += zoneSlots(z); });
     return n;
   }
 
@@ -416,9 +441,10 @@
 
   function zoneRange(zoneId) {
     var from = 0;
-    for (var i = 0; i < ZONES.length; i++) {
-      var n = zoneSlots(ZONES[i]);
-      if (ZONES[i].id === zoneId) return { from: from, to: from + n };
+    var zs = activeZones();
+    for (var i = 0; i < zs.length; i++) {
+      var n = zoneSlots(zs[i]);
+      if (zs[i].id === zoneId) return { from: from, to: from + n };
       from += n;
     }
     return { from: 0, to: 0 };
@@ -426,12 +452,13 @@
 
   function zoneOfSlot(i) {
     var from = 0;
-    for (var z = 0; z < ZONES.length; z++) {
-      var n = zoneSlots(ZONES[z]);
-      if (i < from + n) return ZONES[z].id;
+    var zs = activeZones();
+    for (var z = 0; z < zs.length; z++) {
+      var n = zoneSlots(zs[z]);
+      if (i < from + n) return zs[z].id;
       from += n;
     }
-    return ZONES[ZONES.length - 1].id;
+    return zs[zs.length - 1].id;
   }
 
   function shiftConfig(idx) {
@@ -441,7 +468,7 @@
       types: 12,
       crates: goal * 3 + 12 + SPARE,         // план + полка + запас на просрочку
       goal: goal,
-      patience: Math.max(16, 22 - Math.floor((idx - 2) / 2)),
+      patience: Math.max(10, 14 - Math.floor((idx - 2) / 3)),
       visible: 6,
       lives: 3,
       sale: true
@@ -462,8 +489,9 @@
   // поровну: иначе одна зона забивается, а другая простаивает всю смену.
   function poolFor(types) {
     var pool = [];
-    ZONES.forEach(function (z, i) {
-      var n = Math.floor(types / ZONES.length) + (i < types % ZONES.length ? 1 : 0);
+    var zs = activeZones();
+    zs.forEach(function (z, i) {
+      var n = Math.floor(types / zs.length) + (i < types % zs.length ? 1 : 0);
       pool = pool.concat(PRODUCTS.filter(function (p) { return p.section === z.id; }).slice(0, n));
     });
     return pool;
@@ -553,7 +581,7 @@
     var counts = trayCounts(), need = {};
     Object.keys(counts).forEach(function (id) { if (counts[id] >= 2) need[id] = true; });
     state.customers.forEach(function (c) {
-      c.order.forEach(function (l) { if (stillNeeded(c, l.id, counts) > 0) need[l.id] = true; });
+      c.order.forEach(function (l) { if (stillNeeded(c, l.id) > 0) need[l.id] = true; });
     });
 
     var n = Math.min(beltVisible(), state.belt.length);
@@ -626,7 +654,8 @@
     var used = state.customers.map(function (q) { return q.face; });
     var face = Math.floor(state.rnd() * PEOPLE.length);
     for (var t = 0; t < PEOPLE.length && used.indexOf(face) !== -1; t++) face = (face + 1) % PEOPLE.length;
-    var c = { order: order, patience: patience, max: patience, face: face };
+    var c = { order: order, patience: patience, max: patience, face: face,
+              got: {}, value: 0, cheer: 0 };
     state.customers.push(c);
     return c;
   }
@@ -638,15 +667,63 @@
   }
 
   // Сколько ещё этого товара нужно покупателю, чтобы его набор закрылся.
-  function stillNeeded(c, productId, counts) {
+  function stillNeeded(c, productId) {
     var need = 0;
     c.order.forEach(function (l) {
-      if (l.id === productId) need = Math.max(0, l.n - (counts[l.id] || 0));
+      if (l.id === productId) need = Math.max(0, l.n - (c.got[l.id] || 0));
     });
     return need;
   }
 
+  function orderDone(c) {
+    for (var i = 0; i < c.order.length; i++) {
+      if ((c.got[c.order[i].id] || 0) < c.order[i].n) return false;
+    }
+    return true;
+  }
+
+  // Покупатель не ждёт весь набор целиком: он забирает с полки те позиции,
+  // которые уже выложены, и уходит, когда корзина собралась. Полка за счёт
+  // этого разгружается по ходу, а очередь видно, что движется.
+  function collectFromTray() {
+    var took = false;
+    state.customers.slice().forEach(function (c) {
+      // одна позиция за ход: покупатель обходит прилавок, а не сметает его
+      var taken = [];
+      for (var li = 0; li < c.order.length && !taken.length; li++) {
+        var l = c.order[li];
+        if (stillNeeded(c, l.id) <= 0) continue;
+        var slot = state.tray.indexOf(l.id);
+        if (slot === -1) continue;
+        state.tray[slot] = null;
+        state.fresh[slot] = 0;
+        c.got[l.id] = (c.got[l.id] || 0) + 1;
+        c.value += priceOf(productById(l.id));
+        taken.push({ slot: slot, id: l.id });
+        took = true;
+      }
+      if (taken.length) {
+        c.cheer = 2;                       // пару ходов покупатель доволен
+        compactTray();
+        pickupFx(c, taken);
+      }
+      if (orderDone(c)) completeOrder(c);
+    });
+    return took;
+  }
+
+  function completeOrder(c) {
+    var mult = ZONE_MULT * comboMult();
+    var gain = c.value * mult * ORDER_MULT;
+    state.revenue += gain;
+    state.combo += 1;
+    if (state.combo > bestCombo) bestCombo = state.combo;
+    serveCustomer(c);
+    orderPaidFx(gain, mult);
+  }
+
   function tickPatience() {
+    state.customers.forEach(function (c) { if (c.cheer > 0) c.cheer -= 1; });
     var left = [];
     state.customers.forEach(function (c) {
       c.patience -= 1;
@@ -697,13 +774,6 @@
     var m = {};
     state.tray.forEach(function (id) { if (id) m[id] = (m[id] || 0) + 1; });
     return m;
-  }
-
-  function orderReady(c, counts) {
-    for (var i = 0; i < c.order.length; i++) {
-      if ((counts[c.order[i].id] || 0) < c.order[i].n) return false;
-    }
-    return true;
   }
 
   function takeSlots(productId, n) {
@@ -780,6 +850,7 @@
       if (productById(productId).section === zoneId) shiftStat.home++;
     }
 
+    collectFromTray();                   // покупатели забирают своё первыми
     var sale = resolveSale();
     tickPatience();
     tickFresh();
@@ -789,7 +860,7 @@
     if (!sale) hiddenSlots[key] = true;
     render();
 
-    flyGhost(productById(productId), from, { x: slotX(slot), y: TRAY_Y }, function () {
+    flyGhost(productById(productId), from, { x: slotX(slot), y: slotY(slot) }, function () {
       delete hiddenSlots[key];
       sfx('place');
       if (sale) runSaleFx(); else render({ pop: slot });
@@ -828,34 +899,21 @@
   }
 
   // Любые три одинаковых на прилавке продаются. Бонусы: своя зона и заказ.
+  // То, что не забрал ни один покупатель: три одинаковых уходят «с полки».
   function resolveSale() {
     var counts = trayCounts();
+    var hit = Object.keys(counts).filter(function (k) { return counts[k] >= 3; })[0];
+    if (!hit) return false;
 
-    // сперва — собранный набор покупателя, ради него товар и держат на полке
-    var cust = null;
-    for (var q = 0; q < state.customers.length && !cust; q++) {
-      if (orderReady(state.customers[q], counts)) cust = state.customers[q];
-    }
-
-    var chosen = [], product = null;
-    if (cust) {
-      cust.order.forEach(function (l) { chosen = chosen.concat(takeSlots(l.id, l.n)); });
-      product = productById(cust.order[0].id);
-    } else {
-      // без заказа продаётся привычная тройка одинаковых — «с полки»
-      var hit = Object.keys(counts).filter(function (k) { return counts[k] >= 3; })[0];
-      if (!hit) return false;
-      product = productById(hit);
-      chosen = takeSlots(hit, 3);
-    }
-
+    var product = productById(hit);
+    var chosen = takeSlots(hit, 3);
     var perfect = chosen.every(function (i) { return zoneOfSlot(i) === productById(state.tray[i]).section; });
 
     var sum = 0;
     chosen.forEach(function (i) { sum += priceOf(productById(state.tray[i])); });
-    var order = cust ? serveCustomer(cust) : null;
+    var order = null;
     var mult = perfect ? ZONE_MULT * comboMult() : 1;
-    var gain = sum * mult * (order ? ORDER_MULT : 1);
+    var gain = sum * mult;
 
     state.revenue += gain;
     state.combo = perfect ? state.combo + 1 : 0;
@@ -873,7 +931,7 @@
 
   // Товар сдвигается к началу своей зоны — дырки посреди зоны не копятся.
   function compactTray() {
-    ZONES.forEach(function (z) {
+    activeZones().forEach(function (z) {
       var r = zoneRange(z.id);
       var items = [], life = [];
       for (var i = r.from; i < r.to; i++) if (state.tray[i]) { items.push(state.tray[i]); life.push(state.fresh[i]); }
@@ -907,7 +965,13 @@
 
   function boosterFridge() {
     if (state.status !== 'playing' || !state.boosters.fridge) return false;
-    if (!state.selected || state.selected.from !== 'belt') { toast('Возьмите товар с завоза'); sfx('deny'); return false; }
+    if (state.fridge.length >= fridgeSize()) { toast('Холодильник полон'); sfx('deny'); return false; }
+    if (!state.selected || state.selected.from !== 'belt') {
+      pendingFridge = true;                       // ждём тап по товару из завоза
+      toast('Выберите товар для холодильника');
+      sfx('select');
+      return false;
+    }
     if (state.fridge.length >= fridgeSize()) { toast('Холодильник полон'); sfx('deny'); return false; }
     state.fridge.push(state.belt.splice(state.selected.index, 1)[0]);
     state.selected = null;
@@ -984,55 +1048,85 @@
 
   /* -------------------------------------------------------------- геометрия */
 
-  var HUD_H = 150, SIGN_Y = 150, SIGN_H = 58;
-  var QUEUE_Y = 236, QUEUE_W = 208, QUEUE_H = 208, QUEUE_GAP = 24, QUEUE_X0 = 24;
-  // с рекламой мест в очереди больше, поэтому карточка считается от их числа
-  function queueGap() { return queueSize() > 3 ? 14 : QUEUE_GAP; }
-  function queueW() {
+  /* Горизонт 1280×720: слева колонка очереди, справа стеллаж с отделами,
+     под ним коробка завоза и холодильник, бустеры — колонкой у правого края. */
+  var HUD_H = 84, SIGN_Y = 94, SIGN_H = 42;
+  var QUEUE_X0 = 14, QUEUE_Y = 94, QUEUE_W = 292, QUEUE_GAP = 8;
+  var QUEUE_BOTTOM = 706;
+
+  function queueGap() { return QUEUE_GAP; }
+  function queueW() { return QUEUE_W; }
+  function queueH() {
     var n = queueSize();
-    return Math.floor((W - QUEUE_X0 * 2 - queueGap() * (n - 1)) / n);
+    return Math.min(168, Math.floor((QUEUE_BOTTOM - QUEUE_Y - QUEUE_GAP * (n - 1)) / n));
   }
-  var TRAY_PANEL_Y = 486, TRAY_Y = 578, TRAY_H = 88, TRAY_GAP = 6, ZONE_GAP = 16;
-  var BELT_PANEL_Y = 790, BELT_Y = 832, BELT_H = 138, BELT_GAP = 10;
-  var FRIDGE_Y = 1006, FRIDGE_SLOT_W = 108, FRIDGE_SLOT_H = 84;
-  var BTN_Y = 1124, BTN_W = 200, BTN_H = 90, BTN_GAP = 20, BTN_X0 = 40;
-  var PANEL_X = 24, PANEL_W = 672;
+  function queueX() { return QUEUE_X0; }
+  function queueY(i) { return QUEUE_Y + i * (queueH() + QUEUE_GAP); }
 
-  function traySlotW() {
-    var n = traySize();
-    return Math.floor((PANEL_W - 16 - TRAY_GAP * (n - 1) - ZONE_GAP * (ZONES.length - 1)) / n);
-  }
+  var TRAY_PANEL_Y = 146, TRAY_H = 84, TRAY_GAP = 6, ZONE_GAP = 14;
 
-  function slotX(i) {
-    var w = traySlotW(), x = PANEL_X + 8, idx = 0;
-    for (var z = 0; z < ZONES.length; z++) {
-      var n = zoneSlots(ZONES[z]);
-      if (i < idx + n) return x + (i - idx) * (w + TRAY_GAP);
-      x += n * (w + TRAY_GAP) - TRAY_GAP + ZONE_GAP;
+  // Прилавок: до трёх отделов — один ряд. С мясным отделом их четыре, и он
+  // раскладывается в два ряда по два, а ячейки становятся чуть ниже.
+  function trayRows() { return activeZones().length > 3 ? 2 : 1; }
+  function zonesPerRow() { return Math.ceil(activeZones().length / trayRows()); }
+  function trayH() { return trayRows() > 1 ? 76 : TRAY_H; }
+  function trayPanelY() { return TRAY_PANEL_Y; }
+  function trayRowH() { return trayH() + 42; }
+  function trayPanelH() { return 44 + trayRows() * trayRowH() + 8; }
+  function trayTop() { return trayPanelY() + 78; }
+  function trayRowY(row) { return trayTop() + row * trayRowH(); }
+
+  function slotPos(i) {
+    var zs = activeZones(), per = zonesPerRow(), w = traySlotW(), idx = 0;
+    for (var z = 0; z < zs.length; z++) {
+      var n = zoneSlots(zs[z]);
+      if (i < idx + n) {
+        var row = Math.floor(z / per), x = PANEL_X + 8;
+        for (var q = row * per; q < z; q++) x += zoneSlots(zs[q]) * (w + TRAY_GAP) - TRAY_GAP + ZONE_GAP;
+        return { x: x + (i - idx) * (w + TRAY_GAP), y: trayRowY(row) };
+      }
       idx += n;
     }
-    return x;
+    return { x: PANEL_X + 8, y: trayRowY(0) };
   }
+  function slotY(i) { return slotPos(i).y; }
+  var BELT_PANEL_Y = 452, BELT_Y = 494, BELT_H = 116, BELT_GAP = 8;
+  var FRIDGE_Y = 632, FRIDGE_SLOT_W = 92, FRIDGE_SLOT_H = 72;
+  var BTN_X0 = 1046, BTN_Y = 452, BTN_W = 220, BTN_H = 74, BTN_GAP = 12;
+  var PANEL_X = 320, PANEL_W = 946;          // стеллаж
+  var BELT_X = 320, BELT_W = 700;            // завоз и холодильник уже стеллажа
+
+  // Ширина ячейки считается по самому плотному ряду, чтобы ряды были ровными.
+  function traySlotW() {
+    var zs = activeZones(), per = zonesPerRow(), maxSlots = 0, maxZones = 1;
+    for (var r = 0; r * per < zs.length; r++) {
+      var row = zs.slice(r * per, r * per + per), s = 0;
+      row.forEach(function (z) { s += zoneSlots(z); });
+      if (s > maxSlots) { maxSlots = s; maxZones = row.length; }
+    }
+    return Math.floor((PANEL_W - 16 - TRAY_GAP * (maxSlots - 1) - ZONE_GAP * (maxZones - 1)) / maxSlots);
+  }
+
+  function slotX(i) { return slotPos(i).x; }
 
   function zoneBox(zoneId) {
     var r = zoneRange(zoneId), w = traySlotW();
     var n = r.to - r.from;
-    var x = slotX(r.from);
-    return { x: x - 8, y: TRAY_Y - 10, w: n * (w + TRAY_GAP) - TRAY_GAP + 16, h: TRAY_H + 20 };
+    return { x: slotX(r.from) - 8, y: slotY(r.from) - 10,
+             w: n * (w + TRAY_GAP) - TRAY_GAP + 16, h: trayH() + 20 };
   }
 
   function beltVisible() { return ((state && state.cfg.visible) || BELT_VISIBLE_MAX) + meta.up.cart; }
-  function beltCellW() { var n = beltVisible(); return Math.floor((PANEL_W - 40 - BELT_GAP * (n - 1)) / n); }
-  function beltX0() { var n = beltVisible(); return PANEL_X + (PANEL_W - (beltCellW() * n + BELT_GAP * (n - 1))) / 2; }
+  function beltCellW() { var n = beltVisible(); return Math.floor((BELT_W - 40 - BELT_GAP * (n - 1)) / n); }
+  function beltX0() { var n = beltVisible(); return BELT_X + (BELT_W - (beltCellW() * n + BELT_GAP * (n - 1))) / 2; }
   function beltSlotPos(i) { return { x: beltX0() + i * (beltCellW() + BELT_GAP), y: BELT_Y }; }
 
   function fridgeSlotW() {
     var n = fridgeSize();
-    return Math.min(FRIDGE_SLOT_W, Math.floor((PANEL_W - 200 - BELT_GAP * (n - 1)) / n));
+    return Math.min(FRIDGE_SLOT_W, Math.floor((BELT_W - 190 - BELT_GAP * (n - 1)) / n));
   }
-  function fridgeSlotPos(i) { return { x: PANEL_X + 188 + i * (fridgeSlotW() + BELT_GAP), y: FRIDGE_Y }; }
+  function fridgeSlotPos(i) { return { x: BELT_X + 178 + i * (fridgeSlotW() + BELT_GAP), y: FRIDGE_Y }; }
 
-  function queueX(i) { return QUEUE_X0 + i * (queueW() + queueGap()); }
 
   /* -------------------------------------------------------- примитивы сцены */
 
@@ -1203,27 +1297,26 @@
   }
 
   // Лицо покупателя рисуется примитивами: настроение = сколько осталось терпения.
-  // Покупатели: восемь типажей разных возрастов — двое детей, двое молодых,
-  // двое взрослых и двое пожилых. Рисуются примитивами (ассетов по-прежнему
-  // ноль), но с проработкой: светотень на лице, блик в волосах, ресницы, губы,
-  // воротник одежды, морщинки у пожилых.
+  // Покупатели: восемь характеров разных возрастов — у каждого свой силуэт
+  // (шляпа, кепка, причёска), аксессуар и мимика. Рисуются примитивами, но с
+  // проработкой: двойная светотень на лице, блик в волосах, ресницы, губы.
   var PEOPLE = [
-    { id: 'boy',     age: 'kid',   skin: 0xFFD3A8, hair: 0x7A4B24, cloth: 0x2F8FD6,
-      collar: 'hoodie',   style: 'cap',      freckles: true },
-    { id: 'girl',    age: 'kid',   skin: 0xFFDCBC, hair: 0xC4642A, cloth: 0xE8639C,
-      collar: 'tee',      style: 'tails',    lashes: true, freckles: true },
-    { id: 'lady',    age: 'young', skin: 0xFFD7B0, hair: 0xEFC65C, cloth: 0xD8394A,
-      collar: 'dress',    style: 'long',     lashes: true, earring: true, lips: 0xD8446A },
-    { id: 'guy',     age: 'young', skin: 0xE0A87A, hair: 0x241F1B, cloth: 0x2FA07E,
-      collar: 'tee',      style: 'undercut' },
-    { id: 'woman',   age: 'adult', skin: 0xC98B5E, hair: 0x2E211A, cloth: 0x7C5BD0,
-      collar: 'shirt',    style: 'bob',      lashes: true, lips: 0xB4485F },
-    { id: 'man',     age: 'adult', skin: 0xEFB889, hair: 0x3F2B18, cloth: 0x2B4C86,
-      collar: 'tie',      style: 'part',     beard: 'stubble' },
-    { id: 'granny',  age: 'old',   skin: 0xF3CBA6, hair: 0xDCDEE4, cloth: 0xC26C9E,
-      collar: 'cardigan', style: 'bun',      glasses: true, wrinkles: true, lips: 0xC2687E },
-    { id: 'grandpa', age: 'old',   skin: 0xE7B78B, hair: 0xCFD2D8, cloth: 0x5E7385,
-      collar: 'shirt',    style: 'bald',     glasses: true, beard: 'moustache', wrinkles: true }
+    { id: 'rancher', age: 'old',   skin: 0xE2AE7C, hair: 0xD8DCE2, cloth: 0x5E7A4A,
+      hat: 'cowboy',  style: 'short',    beard: 'moustache', wrinkles: true },
+    { id: 'worker',  age: 'adult', skin: 0xF0B888, hair: 0x4A3520, cloth: 0x3E7FB8,
+      hat: 'cap',     style: 'short',    beard: 'stubble', collar: 'hoodie' },
+    { id: 'grandpa', age: 'old',   skin: 0xE8BB90, hair: 0xDDE0E6, cloth: 0x7A6A55,
+      hat: 'flatcap', style: 'short',    beard: 'full', glasses: true, wrinkles: true, collar: 'shirt' },
+    { id: 'ponytail',age: 'young', skin: 0xE8B98C, hair: 0x241F1B, cloth: 0x2FA07E,
+      style: 'ponytail', lashes: true, earring: true, band: 0x4FC3E8, lips: 0xC85B72, collar: 'tee' },
+    { id: 'diva',    age: 'adult', skin: 0xF6D9BC, hair: 0x201A18, cloth: 0xC02A3E,
+      style: 'waves',    lashes: true, lips: 0xD32F4A, pearls: true, collar: 'dress' },
+    { id: 'redhead', age: 'young', skin: 0xFFDCBC, hair: 0xC4551F, cloth: 0xE8639C,
+      style: 'curly',    lashes: true, freckles: true, band: 0x4FA3F5, lips: 0xCF6076, collar: 'tee' },
+    { id: 'hipster', age: 'adult', skin: 0xD79A6A, hair: 0x1F1A17, cloth: 0x8C6BD6,
+      style: 'quiff',    beard: 'full', shades: true, collar: 'shirt' },
+    { id: 'kid',     age: 'kid',   skin: 0xFFD3A8, hair: 0x6B4A2A, cloth: 0xF0A32A,
+      style: 'streak',   freckles: true, goggles: true, collar: 'hoodie' }
   ];
 
   function personById(idx) {
@@ -1238,224 +1331,254 @@
     var k = r * (kid ? 0.95 : 1);
     var lw = Math.max(2.2, k * 0.115);
     var ink = C.ink;
-    var shade = mix(p.skin, ink, 0.2);
-    var hairDark = mix(p.hair, 0x000000, 0.32);
-    var hairLight = mix(p.hair, 0xFFFFFF, 0.38);
-    var clothDark = mix(p.cloth, 0x000000, 0.25);
-    var clothLight = mix(p.cloth, 0xFFFFFF, 0.28);
+    var shade = mix(p.skin, ink, 0.22);
+    var deep = mix(p.skin, ink, 0.4);
+    var hairDark = mix(p.hair, 0x000000, 0.35);
+    var hairLight = mix(p.hair, 0xFFFFFF, 0.4);
+    var clothDark = mix(p.cloth, 0x000000, 0.28);
+    var clothLight = mix(p.cloth, 0xFFFFFF, 0.3);
 
     var c = new PIXI.Container();
-    var back = new PIXI.Graphics();
-    var body = new PIXI.Graphics();
-    var head = new PIXI.Graphics();
-    var top = new PIXI.Graphics();
+    var back = new PIXI.Graphics(), body = new PIXI.Graphics();
+    var head = new PIXI.Graphics(), top = new PIXI.Graphics();
     c.addChild(back, body, head, top);
 
-    var faceRx = kid ? 1.02 : 1, faceRy = kid ? 1.0 : (old ? 1.12 : 1.08);
+    var faceRx = kid ? 1.02 : (p.id === 'worker' ? 1.05 : 1);
+    var faceRy = kid ? 1.0 : (old ? 1.12 : 1.08);
 
     /* ---- волосы за головой --------------------------------------------- */
-    if (p.style === 'long') {
-      back.ellipse(0, k * 0.3, k * 1.3, k * 1.5).fill(p.hair);
-      back.ellipse(0, k * 0.3, k * 1.3, k * 1.5).stroke({ width: lw, color: ink });
-      back.ellipse(-k * 0.75, k * 0.1, k * 0.2, k * 0.6).fill({ color: hairLight, alpha: 0.45 });
-    } else if (p.style === 'bob') {
-      back.ellipse(0, k * 0.12, k * 1.24, k * 1.26).fill(p.hair);
-      back.ellipse(0, k * 0.12, k * 1.24, k * 1.26).stroke({ width: lw, color: ink });
-    } else if (p.style === 'tails') {
+    if (p.style === 'waves') {
+      back.ellipse(0, k * 0.26, k * 1.32, k * 1.46).fill(p.hair);
+      back.ellipse(0, k * 0.26, k * 1.32, k * 1.46).stroke({ width: lw, color: ink });
       [-1, 1].forEach(function (s) {
-        back.circle(s * k * 1.08, k * 0.3, k * 0.34).fill(p.hair);
-        back.circle(s * k * 1.08, k * 0.3, k * 0.34).stroke({ width: lw, color: ink });
-        back.circle(s * k * 1.14, k * 0.2, k * 0.12).fill({ color: hairLight, alpha: 0.5 });
+        back.circle(s * k * 1.05, k * 0.72, k * 0.34).fill(p.hair);
+        back.circle(s * k * 1.05, k * 0.72, k * 0.34).stroke({ width: lw * 0.8, color: ink });
       });
-    } else if (p.style === 'bun') {
-      back.circle(0, -k * 1.32, k * 0.34).fill(p.hair);
-      back.circle(0, -k * 1.32, k * 0.34).stroke({ width: lw, color: ink });
-      back.circle(-k * 0.12, -k * 1.42, k * 0.12).fill({ color: 0xFFFFFF, alpha: 0.45 });
-      back.ellipse(0, -k * 0.5, k * 1.12, k * 0.75).fill(p.hair);       // зачёс назад
+    } else if (p.style === 'curly') {
+      [[-1.05, -0.25], [1.05, -0.25], [-0.95, 0.35], [0.95, 0.35], [0, -1.1], [-0.65, -0.95], [0.65, -0.95]]
+        .forEach(function (d) {
+          back.circle(d[0] * k, d[1] * k, k * 0.42).fill(p.hair);
+          back.circle(d[0] * k, d[1] * k, k * 0.42).stroke({ width: lw * 0.75, color: ink });
+        });
+    } else if (p.style === 'ponytail') {
+      back.circle(k * 1.15, -k * 0.2, k * 0.3).fill(p.hair);
+      back.circle(k * 1.15, -k * 0.2, k * 0.3).stroke({ width: lw, color: ink });
+      back.ellipse(k * 1.3, k * 0.42, k * 0.26, k * 0.55).fill(p.hair);
+      back.ellipse(k * 1.3, k * 0.42, k * 0.26, k * 0.55).stroke({ width: lw, color: ink });
+      back.ellipse(0, -k * 0.2, k * 1.16, k * 1.1).fill(p.hair);
+    } else if (p.style === 'streak') {
+      back.ellipse(0, -k * 0.35, k * 1.14, k * 0.95).fill(p.hair);
+      back.ellipse(0, -k * 0.35, k * 1.14, k * 0.95).stroke({ width: lw, color: ink });
     }
 
     /* ---- плечи, воротник, шея ------------------------------------------ */
-    body.roundRect(-k * 1.3, k * 0.95, k * 2.6, k * 1.0, k * 0.36).fill(p.cloth);
-    body.roundRect(-k * 1.3, k * 0.95, k * 2.6, k * 1.0, k * 0.36).stroke({ width: lw, color: ink });
-    body.roundRect(-k * 1.3, k * 0.95, k * 1.0, k * 1.0, k * 0.36).fill({ color: clothLight, alpha: 0.35 });
+    body.roundRect(-k * 1.32, k * 0.95, k * 2.64, k * 1.05, k * 0.36).fill(p.cloth);
+    body.roundRect(-k * 1.32, k * 0.95, k * 2.64, k * 1.05, k * 0.36).stroke({ width: lw, color: ink });
+    body.roundRect(-k * 1.32, k * 0.95, k * 1.05, k * 1.05, k * 0.36).fill({ color: clothLight, alpha: 0.32 });
     body.rect(-k * 0.3, k * 0.6, k * 0.6, k * 0.5).fill(p.skin);
-    body.ellipse(0, k * 0.72, k * 0.34, k * 0.2).fill({ color: shade, alpha: 0.75 });
+    body.ellipse(0, k * 0.74, k * 0.35, k * 0.2).fill({ color: deep, alpha: 0.6 });
 
-    if (p.collar === 'tie') {
-      body.moveTo(-k * 0.44, k * 0.95).lineTo(0, k * 1.5).lineTo(k * 0.44, k * 0.95).fill(0xF2F5F8);
-      body.moveTo(-k * 0.44, k * 0.95).lineTo(0, k * 1.5).lineTo(k * 0.44, k * 0.95).stroke({ width: lw * 0.8, color: ink });
-      body.moveTo(-k * 0.13, k * 1.06).lineTo(k * 0.13, k * 1.06).lineTo(k * 0.2, k * 1.95)
-          .lineTo(-k * 0.2, k * 1.95).closePath().fill(0xC8402F);
-      body.moveTo(-k * 0.13, k * 1.06).lineTo(k * 0.13, k * 1.06).lineTo(k * 0.2, k * 1.95)
-          .lineTo(-k * 0.2, k * 1.95).closePath().stroke({ width: lw * 0.7, color: ink });
-    } else if (p.collar === 'shirt') {
+    if (p.collar === 'shirt') {
       [-1, 1].forEach(function (s) {
-        body.moveTo(s * k * 0.1, k * 1.0).lineTo(s * k * 0.62, k * 1.05).lineTo(s * k * 0.16, k * 1.55)
+        body.moveTo(s * k * 0.1, k * 1.0).lineTo(s * k * 0.62, k * 1.06).lineTo(s * k * 0.16, k * 1.56)
             .closePath().fill(clothLight);
-        body.moveTo(s * k * 0.1, k * 1.0).lineTo(s * k * 0.62, k * 1.05).lineTo(s * k * 0.16, k * 1.55)
+        body.moveTo(s * k * 0.1, k * 1.0).lineTo(s * k * 0.62, k * 1.06).lineTo(s * k * 0.16, k * 1.56)
             .closePath().stroke({ width: lw * 0.7, color: ink });
       });
     } else if (p.collar === 'dress') {
-      body.moveTo(-k * 0.5, k * 0.98).quadraticCurveTo(0, k * 1.5, k * 0.5, k * 0.98).fill(p.skin);
-      body.moveTo(-k * 0.5, k * 0.98).quadraticCurveTo(0, k * 1.5, k * 0.5, k * 0.98)
+      body.moveTo(-k * 0.52, k * 0.98).quadraticCurveTo(0, k * 1.52, k * 0.52, k * 0.98).fill(p.skin);
+      body.moveTo(-k * 0.52, k * 0.98).quadraticCurveTo(0, k * 1.52, k * 0.52, k * 0.98)
           .stroke({ width: lw * 0.7, color: ink });
     } else if (p.collar === 'hoodie') {
-      body.moveTo(-k * 0.6, k * 0.96).quadraticCurveTo(0, k * 1.44, k * 0.6, k * 0.96)
-          .stroke({ width: lw * 1.4, color: clothDark, cap: 'round' });
+      body.moveTo(-k * 0.62, k * 0.96).quadraticCurveTo(0, k * 1.46, k * 0.62, k * 0.96)
+          .stroke({ width: lw * 1.5, color: clothDark, cap: 'round' });
       [-1, 1].forEach(function (s) {
-        body.moveTo(s * k * 0.2, k * 1.24).lineTo(s * k * 0.26, k * 1.8)
+        body.moveTo(s * k * 0.2, k * 1.26).lineTo(s * k * 0.27, k * 1.82)
             .stroke({ width: lw * 0.7, color: 0xF2F5F8, cap: 'round' });
       });
-    } else if (p.collar === 'cardigan') {
-      [-1, 1].forEach(function (s) {
-        body.moveTo(s * k * 0.12, k * 0.98).lineTo(s * k * 0.7, k * 1.1).lineTo(s * k * 0.28, k * 1.95)
-            .closePath().fill(clothDark);
-      });
-      body.circle(0, k * 1.45, k * 0.1).fill(0xF7E7C8);
     } else {
-      body.moveTo(-k * 0.42, k * 0.96).quadraticCurveTo(0, k * 1.32, k * 0.42, k * 0.96)
+      body.moveTo(-k * 0.44, k * 0.96).quadraticCurveTo(0, k * 1.34, k * 0.44, k * 0.96)
           .stroke({ width: lw * 1.2, color: clothDark, cap: 'round' });
     }
+    if (p.pearls) {
+      for (var b = -3; b <= 3; b++) {
+        body.circle(b * k * 0.16, k * 1.12 + Math.abs(b) * k * 0.05, k * 0.075).fill(0xFFF6E8);
+        body.circle(b * k * 0.16, k * 1.12 + Math.abs(b) * k * 0.05, k * 0.075)
+            .stroke({ width: lw * 0.35, color: ink, alpha: 0.5 });
+      }
+    }
 
-    /* ---- лицо ---------------------------------------------------------- */
+    /* ---- лицо: база, тень справа, румянец ------------------------------ */
     head.ellipse(0, 0, k * faceRx, k * faceRy).fill(p.skin);
-    head.ellipse(k * 0.42, k * 0.05, k * 0.62, k * faceRy * 0.9).fill({ color: shade, alpha: 0.17 });
+    head.ellipse(k * 0.44, k * 0.06, k * 0.6, k * faceRy * 0.88).fill({ color: shade, alpha: 0.18 });
+    head.ellipse(0, k * faceRy * 0.62, k * 0.42, k * 0.3).fill({ color: shade, alpha: 0.12 });
     head.ellipse(0, 0, k * faceRx, k * faceRy).stroke({ width: lw, color: ink });
     [-1, 1].forEach(function (s) {
       head.circle(s * k * 0.99, k * 0.1, k * 0.18).fill(p.skin);
       head.circle(s * k * 0.99, k * 0.1, k * 0.18).stroke({ width: lw * 0.8, color: ink });
-      head.moveTo(s * k * 1.02, k * 0.04).quadraticCurveTo(s * k * 0.94, k * 0.12, s * k * 1.0, k * 0.18)
-          .stroke({ width: lw * 0.55, color: shade, alpha: 0.8 });
+      head.moveTo(s * k * 1.02, k * 0.04).quadraticCurveTo(s * k * 0.93, k * 0.12, s * k * 1.0, k * 0.18)
+          .stroke({ width: lw * 0.5, color: shade, alpha: 0.8 });
     });
 
-    /* ---- причёска ------------------------------------------------------ */
-    if (p.style === 'cap') {
-      top.ellipse(0, -k * 0.62, k * 1.0, k * 0.4).fill(p.hair);        // чёлка из-под козырька
-      top.ellipse(0, -k * 0.95, k * 1.0, k * 0.5).fill(p.cloth);
-      top.ellipse(0, -k * 0.95, k * 1.0, k * 0.5).stroke({ width: lw, color: ink });
-      top.ellipse(-k * 0.3, -k * 1.1, k * 0.42, k * 0.16).fill({ color: clothLight, alpha: 0.6 });
-      top.ellipse(-k * 0.52, -k * 0.74, k * 0.9, k * 0.17).fill(clothDark);
-      top.ellipse(-k * 0.52, -k * 0.74, k * 0.9, k * 0.17).stroke({ width: lw * 0.8, color: ink });
-      top.circle(0, -k * 1.33, k * 0.1).fill(clothLight);
-    } else if (p.style === 'bald') {
-      back.ellipse(0, -k * 0.34, k * 1.14, k * 0.86).fill(p.hair);     // венчик за головой
-      back.ellipse(0, -k * 0.34, k * 1.14, k * 0.86).stroke({ width: lw, color: ink });
+    /* ---- волосы и головные уборы --------------------------------------- */
+    var hy = -k * 0.95, hrx = k * 1.04, hry = k * 0.54;
+    if (p.style === 'quiff') { hy = -k * 1.06; hry = k * 0.62; }
+    if (p.style === 'waves') { hrx = k * 1.1; }
+    top.ellipse(0, hy, hrx, hry).fill(p.hair);
+    top.ellipse(0, hy, hrx, hry).stroke({ width: lw, color: ink });
+    top.ellipse(-k * 0.34, hy - k * 0.1, k * 0.44, k * 0.15).fill({ color: hairLight, alpha: 0.55 });
+    if (p.style === 'quiff') {
+      top.moveTo(-k * 0.5, -k * 1.2).quadraticCurveTo(k * 0.1, -k * 1.75, k * 0.62, -k * 1.15)
+         .quadraticCurveTo(k * 0.1, -k * 1.4, -k * 0.5, -k * 1.2).fill(p.hair);
+      top.moveTo(-k * 0.5, -k * 1.2).quadraticCurveTo(k * 0.1, -k * 1.75, k * 0.62, -k * 1.15)
+         .stroke({ width: lw * 0.9, color: ink, cap: 'round' });
+    }
+    if (p.style === 'streak') {
+      top.ellipse(k * 0.46, -k * 0.9, k * 0.22, k * 0.5).fill(0xE0574A);
+      top.ellipse(k * 0.46, -k * 0.9, k * 0.22, k * 0.5).stroke({ width: lw * 0.6, color: ink, alpha: 0.6 });
+    }
+    if (p.band) {
+      top.roundRect(-k * 1.06, -k * 1.0, k * 2.12, k * 0.24, k * 0.1).fill(p.band);
+      top.roundRect(-k * 1.06, -k * 1.0, k * 2.12, k * 0.24, k * 0.1).stroke({ width: lw * 0.7, color: ink });
+    }
+    if (p.hat === 'cowboy') {
+      top.ellipse(0, -k * 0.86, k * 1.9, k * 0.34).fill(mix(p.cloth, 0x7A5A2E, 0.7));
+      top.ellipse(0, -k * 0.86, k * 1.9, k * 0.34).stroke({ width: lw, color: ink });
+      top.ellipse(0, -k * 1.24, k * 0.8, k * 0.52).fill(mix(p.cloth, 0x8A6A36, 0.7));
+      top.ellipse(0, -k * 1.24, k * 0.8, k * 0.52).stroke({ width: lw, color: ink });
+      top.roundRect(-k * 0.82, -k * 1.02, k * 1.64, k * 0.2, k * 0.08).fill(0x5C4326);
+    } else if (p.hat === 'cap') {
+      top.ellipse(0, -k * 1.02, k * 1.04, k * 0.52).fill(p.cloth);
+      top.ellipse(0, -k * 1.02, k * 1.04, k * 0.52).stroke({ width: lw, color: ink });
+      top.ellipse(-k * 0.3, -k * 1.2, k * 0.44, k * 0.16).fill({ color: clothLight, alpha: 0.6 });
+      top.ellipse(-k * 0.62, -k * 0.78, k * 0.95, k * 0.18).fill(clothDark);
+      top.ellipse(-k * 0.62, -k * 0.78, k * 0.95, k * 0.18).stroke({ width: lw * 0.8, color: ink });
+      top.circle(0, -k * 1.42, k * 0.1).fill(clothLight);
+    } else if (p.hat === 'flatcap') {
+      top.ellipse(0, -k * 1.02, k * 1.1, k * 0.44).fill(mix(p.cloth, 0x6E6154, 0.6));
+      top.ellipse(0, -k * 1.02, k * 1.1, k * 0.44).stroke({ width: lw, color: ink });
+      top.ellipse(-k * 0.66, -k * 0.82, k * 0.86, k * 0.16).fill(mix(p.cloth, 0x4E4438, 0.6));
+      top.ellipse(-k * 0.66, -k * 0.82, k * 0.86, k * 0.16).stroke({ width: lw * 0.8, color: ink });
+    }
+    if (p.goggles) {
+      top.roundRect(-k * 1.0, -k * 1.05, k * 2.0, k * 0.34, k * 0.14).fill(0x3B4650);
+      top.roundRect(-k * 1.0, -k * 1.05, k * 2.0, k * 0.34, k * 0.14).stroke({ width: lw * 0.7, color: ink });
       [-1, 1].forEach(function (s) {
-        top.ellipse(s * k * 0.9, -k * 0.2, k * 0.24, k * 0.46).fill(p.hair);
-        top.ellipse(s * k * 0.9, -k * 0.2, k * 0.24, k * 0.46).stroke({ width: lw * 0.8, color: ink });
+        top.circle(s * k * 0.45, -k * 0.88, k * 0.26).fill(0x9FD8F0);
+        top.circle(s * k * 0.45, -k * 0.88, k * 0.26).stroke({ width: lw * 0.7, color: ink });
       });
-      top.ellipse(-k * 0.28, -k * 0.86, k * 0.34, k * 0.12).fill({ color: 0xFFFFFF, alpha: 0.4 });
-    } else {
-      var hy = p.style === 'undercut' ? -k * 1.0 : (p.style === 'bun' ? -k * 1.02 : -k * 0.95);
-      var hrx = p.style === 'undercut' ? k * 0.96 : k * 1.04;
-      var hry = p.style === 'bun' ? k * 0.44 : k * 0.54;
-      top.ellipse(0, hy, hrx, hry).fill(p.hair);
-      top.ellipse(0, hy, hrx, hry).stroke({ width: lw, color: ink });
-      top.ellipse(-k * 0.34, hy - k * 0.08, k * 0.42, k * 0.14).fill({ color: hairLight, alpha: 0.55 });
-      if (p.style === 'part') {
-        top.moveTo(-k * 0.22, -k * 1.42).quadraticCurveTo(k * 0.12, -k * 1.0, k * 0.6, -k * 0.86)
-           .stroke({ width: lw * 0.8, color: hairDark, cap: 'round' });
-      }
-      if (p.style === 'undercut') {
-        [-1, 1].forEach(function (s) {
-          top.ellipse(s * k * 0.86, -k * 0.62, k * 0.18, k * 0.26).fill(hairDark);
-        });
-      }
-      if (p.style === 'long' || p.style === 'bob') {
-        [-1, 1].forEach(function (s) {
-          top.ellipse(s * k * 0.95, -k * 0.3, k * 0.28, k * 0.55).fill(p.hair);
-          top.ellipse(s * k * 0.95, -k * 0.3, k * 0.28, k * 0.55).stroke({ width: lw * 0.8, color: ink });
-        });
-      }
     }
 
-    /* ---- глаза --------------------------------------------------------- */
+    /* ---- глаза ---------------------------------------------------------- */
     var eyeY = k * 0.04, eyeX = k * 0.37, eyeR = k * (kid ? 0.25 : 0.21);
-    [-1, 1].forEach(function (s) {
-      top.ellipse(s * eyeX, eyeY, eyeR * 0.8, eyeR * 0.94).fill(0xFFFFFF);
-      top.ellipse(s * eyeX, eyeY, eyeR * 0.8, eyeR * 0.94).fill({ color: shade, alpha: 0.12 });
-      top.circle(s * eyeX, eyeY + eyeR * 0.08, eyeR * 0.52).fill(mix(p.hair, 0x2E6B9E, 0.55));
-      top.circle(s * eyeX, eyeY + eyeR * 0.08, eyeR * 0.3).fill(0x1A1512);
-      top.circle(s * eyeX - eyeR * 0.24, eyeY - eyeR * 0.3, eyeR * 0.19).fill(0xFFFFFF);
-      top.circle(s * eyeX + eyeR * 0.22, eyeY + eyeR * 0.3, eyeR * 0.09).fill({ color: 0xFFFFFF, alpha: 0.7 });
-      top.moveTo(s * (eyeX - eyeR * 0.82), eyeY - eyeR * 0.45)
-         .quadraticCurveTo(s * eyeX, eyeY - eyeR * 1.2, s * (eyeX + eyeR * 0.82), eyeY - eyeR * 0.45)
-         .stroke({ width: lw * (p.lashes ? 0.95 : 0.7), color: ink, cap: 'round' });
-      if (p.lashes) {
-        top.moveTo(s * (eyeX + eyeR * 0.78), eyeY - eyeR * 0.5)
-           .lineTo(s * (eyeX + eyeR * 1.05), eyeY - eyeR * 0.72)
-           .stroke({ width: lw * 0.5, color: ink, cap: 'round' });
-      }
-    });
+    if (!p.shades) {
+      [-1, 1].forEach(function (s) {
+        top.ellipse(s * eyeX, eyeY, eyeR * 0.8, eyeR * 0.94).fill(0xFFFFFF);
+        top.ellipse(s * eyeX, eyeY - eyeR * 0.45, eyeR * 0.8, eyeR * 0.4).fill({ color: shade, alpha: 0.16 });
+        top.circle(s * eyeX, eyeY + eyeR * 0.08, eyeR * 0.52).fill(mix(p.hair, 0x2E6B9E, 0.55));
+        top.circle(s * eyeX, eyeY + eyeR * 0.08, eyeR * 0.34).fill(mix(p.hair, 0x123448, 0.45));
+        top.circle(s * eyeX, eyeY + eyeR * 0.08, eyeR * 0.18).fill(0x140F0C);
+        top.circle(s * eyeX - eyeR * 0.26, eyeY - eyeR * 0.3, eyeR * 0.2).fill(0xFFFFFF);
+        top.circle(s * eyeX + eyeR * 0.24, eyeY + eyeR * 0.3, eyeR * 0.1).fill({ color: 0xFFFFFF, alpha: 0.7 });
+        top.moveTo(s * (eyeX - eyeR * 0.82), eyeY - eyeR * 0.45)
+           .quadraticCurveTo(s * eyeX, eyeY - eyeR * 1.2, s * (eyeX + eyeR * 0.82), eyeY - eyeR * 0.45)
+           .stroke({ width: lw * (p.lashes ? 0.95 : 0.72), color: ink, cap: 'round' });
+        if (p.lashes) {
+          top.moveTo(s * (eyeX + eyeR * 0.78), eyeY - eyeR * 0.5)
+             .lineTo(s * (eyeX + eyeR * 1.08), eyeY - eyeR * 0.74)
+             .stroke({ width: lw * 0.5, color: ink, cap: 'round' });
+        }
+      });
+    } else {
+      top.roundRect(-k * 0.82, eyeY - eyeR * 0.9, k * 1.64, eyeR * 1.9, eyeR * 0.5).fill(0x1E242A);
+      top.roundRect(-k * 0.82, eyeY - eyeR * 0.9, k * 1.64, eyeR * 1.9, eyeR * 0.5)
+         .stroke({ width: lw * 0.8, color: ink });
+      [-1, 1].forEach(function (s) {
+        top.moveTo(s * (eyeX - eyeR * 0.5), eyeY - eyeR * 0.5).lineTo(s * (eyeX + eyeR * 0.3), eyeY + eyeR * 0.5)
+           .stroke({ width: lw * 0.8, color: 0xFFFFFF, alpha: 0.35, cap: 'round' });
+      });
+    }
 
-    /* ---- брови: настроение --------------------------------------------- */
-    var browY = eyeY - eyeR * 1.9;
-    var inner = mood === 'sad' ? eyeR * 0.55 : (mood === 'wait' ? 0 : -eyeR * 0.3);
-    [-1, 1].forEach(function (s) {
-      top.moveTo(s * (eyeX - eyeR * 0.9), browY + (mood === 'sad' ? -eyeR * 0.22 : 0))
-         .quadraticCurveTo(s * eyeX, browY - eyeR * 0.4, s * (eyeX + eyeR * 0.9), browY + inner)
-         .stroke({ width: lw * (old ? 0.75 : 0.95), color: old ? mix(p.hair, ink, 0.35) : hairDark, cap: 'round' });
-    });
+    /* ---- брови: настроение ---------------------------------------------- */
+    if (!p.shades) {
+      var browY = eyeY - eyeR * 1.9;
+      var inner = mood === 'angry' ? eyeR * 0.8 : (mood === 'worry' ? -eyeR * 0.45 :
+                  (mood === 'wait' ? 0 : -eyeR * 0.3));
+      [-1, 1].forEach(function (s) {
+        top.moveTo(s * (eyeX - eyeR * 0.9), browY + (mood === 'angry' ? -eyeR * 0.3 : 0))
+           .quadraticCurveTo(s * eyeX, browY - eyeR * 0.4, s * (eyeX + eyeR * 0.9), browY + inner)
+           .stroke({ width: lw * (old ? 0.8 : 1), color: old ? mix(p.hair, ink, 0.3) : hairDark, cap: 'round' });
+      });
+    }
 
-    /* ---- нос и рот ------------------------------------------------------ */
-    top.moveTo(k * 0.02, eyeY + eyeR * 0.7).quadraticCurveTo(k * 0.16, k * 0.38, -k * 0.02, k * 0.4)
+    /* ---- нос, рот ------------------------------------------------------- */
+    top.moveTo(k * 0.02, eyeY + eyeR * 0.7).quadraticCurveTo(k * 0.17, k * 0.38, -k * 0.02, k * 0.4)
        .stroke({ width: lw * 0.7, color: shade, cap: 'round' });
-    top.ellipse(-k * 0.09, k * 0.42, k * 0.05, k * 0.03).fill({ color: shade, alpha: 0.7 });
+    top.ellipse(-k * 0.1, k * 0.42, k * 0.05, k * 0.03).fill({ color: deep, alpha: 0.6 });
 
     var lip = p.lips || 0x9B4034;
-    if (mood === 'sad') {
-      top.moveTo(-k * 0.28, k * 0.76).quadraticCurveTo(0, k * 0.54, k * 0.28, k * 0.76)
+    if (mood === 'angry') {
+      top.moveTo(-k * 0.3, k * 0.78).quadraticCurveTo(0, k * 0.5, k * 0.3, k * 0.78)
+         .stroke({ width: lw * 1.05, color: lip, cap: 'round' });
+    } else if (mood === 'worry') {
+      top.moveTo(-k * 0.26, k * 0.72).quadraticCurveTo(0, k * 0.58, k * 0.26, k * 0.72)
          .stroke({ width: lw * 0.95, color: lip, cap: 'round' });
+      top.circle(k * 0.86, -k * 0.2, k * 0.1).fill({ color: 0x6FC0EC, alpha: 0.9 });
     } else if (mood === 'wait') {
-      top.moveTo(-k * 0.24, k * 0.66).quadraticCurveTo(0, k * 0.72, k * 0.24, k * 0.66)
+      top.moveTo(-k * 0.24, k * 0.66).quadraticCurveTo(0, k * 0.73, k * 0.24, k * 0.66)
          .stroke({ width: lw * 0.95, color: lip, cap: 'round' });
     } else {
-      top.moveTo(-k * 0.3, k * 0.58).quadraticCurveTo(0, k * 0.96, k * 0.3, k * 0.58)
-         .quadraticCurveTo(0, k * 0.72, -k * 0.3, k * 0.58).fill(mix(lip, 0x000000, 0.25));
-      top.moveTo(-k * 0.24, k * 0.63).quadraticCurveTo(0, k * 0.72, k * 0.24, k * 0.63)
-         .stroke({ width: lw * 0.5, color: 0xFFFFFF, alpha: 0.75 });
-      top.moveTo(-k * 0.3, k * 0.58).quadraticCurveTo(0, k * 0.96, k * 0.3, k * 0.58)
-         .stroke({ width: lw * 0.7, color: ink, cap: 'round' });
+      top.moveTo(-k * 0.32, k * 0.58).quadraticCurveTo(0, k * 1.0, k * 0.32, k * 0.58)
+         .quadraticCurveTo(0, k * 0.74, -k * 0.32, k * 0.58).fill(mix(lip, 0x000000, 0.2));
+      top.moveTo(-k * 0.26, k * 0.62).quadraticCurveTo(0, k * 0.71, k * 0.26, k * 0.62)
+         .stroke({ width: lw * 0.5, color: 0xFFFFFF, alpha: 0.8 });
+      top.moveTo(-k * 0.32, k * 0.58).quadraticCurveTo(0, k * 1.0, k * 0.32, k * 0.58)
+         .stroke({ width: lw * 0.75, color: ink, cap: 'round' });
     }
 
-    /* ---- возрастные и прочие детали ------------------------------------- */
-    if (p.beard === 'moustache') {
-      top.ellipse(0, k * 0.45, k * 0.34, k * 0.11).fill(p.hair);
-      top.ellipse(0, k * 0.45, k * 0.34, k * 0.11).stroke({ width: lw * 0.5, color: ink, alpha: 0.5 });
+    /* ---- борода, морщины, мелочи ---------------------------------------- */
+    if (p.beard === 'full') {
+      top.moveTo(-k * 0.92, k * 0.1).quadraticCurveTo(-k * 0.8, k * 1.42, 0, k * 1.5)
+         .quadraticCurveTo(k * 0.8, k * 1.42, k * 0.92, k * 0.1)
+         .quadraticCurveTo(k * 0.5, k * 0.86, 0, k * 0.86)
+         .quadraticCurveTo(-k * 0.5, k * 0.86, -k * 0.92, k * 0.1).fill(p.hair);
+      top.moveTo(-k * 0.92, k * 0.1).quadraticCurveTo(-k * 0.8, k * 1.42, 0, k * 1.5)
+         .quadraticCurveTo(k * 0.8, k * 1.42, k * 0.92, k * 0.1)
+         .stroke({ width: lw * 0.9, color: ink, cap: 'round' });
+      top.ellipse(0, k * 0.44, k * 0.34, k * 0.11).fill(p.hair);
+    } else if (p.beard === 'moustache') {
+      top.ellipse(0, k * 0.44, k * 0.36, k * 0.12).fill(p.hair);
+      top.ellipse(0, k * 0.44, k * 0.36, k * 0.12).stroke({ width: lw * 0.5, color: ink, alpha: 0.45 });
     } else if (p.beard === 'stubble') {
-      top.ellipse(0, k * 0.66, k * 0.7, k * 0.44).fill({ color: hairDark, alpha: 0.2 });
+      top.ellipse(0, k * 0.68, k * 0.72, k * 0.45).fill({ color: hairDark, alpha: 0.2 });
     }
     if (p.wrinkles) {
       [-1, 1].forEach(function (s) {
-        top.moveTo(s * k * 0.72, eyeY - eyeR * 0.1).lineTo(s * k * 0.86, eyeY - eyeR * 0.5)
-           .stroke({ width: lw * 0.45, color: shade, alpha: 0.8, cap: 'round' });
-        top.moveTo(s * k * 0.72, eyeY + eyeR * 0.3).lineTo(s * k * 0.88, eyeY + eyeR * 0.25)
+        top.moveTo(s * k * 0.72, eyeY - eyeR * 0.1).lineTo(s * k * 0.88, eyeY - eyeR * 0.5)
+           .stroke({ width: lw * 0.45, color: shade, alpha: 0.85, cap: 'round' });
+        top.moveTo(s * k * 0.72, eyeY + eyeR * 0.35).lineTo(s * k * 0.9, eyeY + eyeR * 0.3)
            .stroke({ width: lw * 0.45, color: shade, alpha: 0.6, cap: 'round' });
-        top.moveTo(s * k * 0.3, k * 0.4).quadraticCurveTo(s * k * 0.42, k * 0.6, s * k * 0.34, k * 0.74)
-           .stroke({ width: lw * 0.45, color: shade, alpha: 0.7, cap: 'round' });
       });
     }
     if (p.glasses) {
       [-1, 1].forEach(function (s) {
-        top.circle(s * eyeX, eyeY, eyeR * 1.32).fill({ color: 0xBFE0F0, alpha: 0.18 });
-        top.circle(s * eyeX, eyeY, eyeR * 1.32).stroke({ width: lw * 0.75, color: 0x37424C });
-      });
-      top.moveTo(-eyeX + eyeR * 1.32, eyeY).lineTo(eyeX - eyeR * 1.32, eyeY)
-         .stroke({ width: lw * 0.65, color: 0x37424C });
-      [-1, 1].forEach(function (s) {
-        top.moveTo(s * (eyeX + eyeR * 1.32), eyeY).lineTo(s * k * 1.0, eyeY - eyeR * 0.2)
+        top.circle(s * eyeX, eyeY, eyeR * 1.34).fill({ color: 0xBFE0F0, alpha: 0.18 });
+        top.circle(s * eyeX, eyeY, eyeR * 1.34).stroke({ width: lw * 0.75, color: 0x37424C });
+        top.moveTo(s * (eyeX + eyeR * 1.34), eyeY).lineTo(s * k * 1.0, eyeY - eyeR * 0.2)
            .stroke({ width: lw * 0.6, color: 0x37424C });
       });
+      top.moveTo(-eyeX + eyeR * 1.34, eyeY).lineTo(eyeX - eyeR * 1.34, eyeY)
+         .stroke({ width: lw * 0.65, color: 0x37424C });
     }
     if (p.earring) {
       [-1, 1].forEach(function (s) {
-        top.circle(s * k * 1.0, k * 0.3, k * 0.09).fill(C.gold);
-        top.circle(s * k * 1.0, k * 0.3, k * 0.09).stroke({ width: lw * 0.4, color: ink, alpha: 0.6 });
+        top.circle(s * k * 1.0, k * 0.3, k * 0.11).stroke({ width: lw * 0.6, color: C.gold });
       });
     }
     if (kid || p.lips) {
       [-1, 1].forEach(function (s) {
-        top.ellipse(s * k * 0.62, k * 0.34, k * 0.2, k * 0.13).fill({ color: 0xFF7A63, alpha: kid ? 0.34 : 0.22 });
+        top.ellipse(s * k * 0.64, k * 0.34, k * 0.2, k * 0.13)
+           .fill({ color: 0xFF7A63, alpha: kid ? 0.32 : 0.2 });
       });
     }
     if (p.freckles) {
@@ -1478,23 +1601,18 @@
     var bg = new PIXI.Graphics();
     vGradient(bg, 0, 0, W, H, C.wallTop, C.wallBot, 28);
     // потолочные лампы зала: холодная засветка сверху
-    bg.ellipse(W / 2, 30, W * 0.8, 96).fill({ color: 0xFFF6DF, alpha: 0.75 });
-    bg.ellipse(W / 2, SIGN_Y + 120, W * 0.9, 200).fill({ color: 0xFFE9BE, alpha: 0.22 });
+    bg.ellipse(W / 2, 20, W * 0.7, 70).fill({ color: 0xFFF6DF, alpha: 0.7 });
     // дальние стеллажи зала — чуть намеченные вертикали, чтобы был объём помещения
-    for (var wx = 16; wx < W; wx += 118) {
-      bg.rect(wx, SIGN_Y + 40, 70, 300).fill({ color: C.steel, alpha: 0.09 });
-      bg.rect(wx, SIGN_Y + 40, 70, 6).fill({ color: C.steelDark, alpha: 0.10 });
+    for (var wx = 320; wx < W; wx += 132) {
+      bg.rect(wx, SIGN_Y + 10, 78, 200).fill({ color: C.steel, alpha: 0.08 });
+      bg.rect(wx, SIGN_Y + 10, 78, 6).fill({ color: C.steelDark, alpha: 0.09 });
     }
-    // пол: светлая плитка с расшивкой по диагонали
-    bg.rect(0, 1206, W, H - 1206).fill(C.floor);
-    bg.rect(0, 1206, W, 8).fill({ color: 0xFFFFFF, alpha: 0.35 });
-    for (var fy = 1222; fy < H; fy += 26) {                      // доски пола
-      bg.rect(0, fy, W, 3).fill({ color: 0x6E4318, alpha: 0.35 });
+    // пол виден узкой полосой снизу
+    bg.rect(0, 692, W, H - 692).fill(C.floor);
+    bg.rect(0, 692, W, 6).fill({ color: 0xFFFFFF, alpha: 0.35 });
+    for (var fx2 = 30; fx2 < W; fx2 += 150) {
+      bg.rect(fx2, 698, 3, H - 698).fill({ color: 0x6E4318, alpha: 0.22 });
     }
-    for (var fx2 = 40; fx2 < W; fx2 += 132) {                    // стыки досок
-      bg.rect(fx2, 1214, 3, H - 1214).fill({ color: 0x6E4318, alpha: 0.22 });
-    }
-    bg.rect(0, 1206, W, 10).fill({ color: 0x6E4318, alpha: 0.25 });
     root.addChild(bg);
 
     buildHud();
@@ -1540,36 +1658,36 @@
     g.rect(0, HUD_H - 5, W, 2).fill({ color: 0xFFFFFF, alpha: 0.12 });
     root.addChild(g);
 
-    hud.revenue = label('0 ₽', 44, C.green, '800');
-    hud.revenue.x = 26; hud.revenue.y = 14;
+    hud.revenue = label('0 ₽', 34, C.green, '800');
+    hud.revenue.x = 22; hud.revenue.y = 10;
     root.addChild(hud.revenue);
 
-    var cap = label('ВЫРУЧКА СМЕНЫ', 13, C.hudInkSoft, '700');
-    cap.x = 28; cap.y = 62;
+    var cap = label('ВЫРУЧКА СМЕНЫ', 12, C.hudInkSoft, '700');
+    cap.x = 24; cap.y = 52;
     root.addChild(cap);
 
     hud.shift = label('', 15, C.hudInk, '700');
     hud.shift.anchor.set(1, 0);
-    hud.shift.x = W - 92; hud.shift.y = 22;
+    hud.shift.x = W - 86; hud.shift.y = 10;
     root.addChild(hud.shift);
 
-    hud.streak = label('', 14, C.hudInkSoft, '600');
+    hud.streak = label('', 13, C.hudInkSoft, '600');
     hud.streak.anchor.set(1, 0);
-    hud.streak.x = W - 92; hud.streak.y = 44;
+    hud.streak.x = W - 86; hud.streak.y = 32;
     root.addChild(hud.streak);
 
     hud.planBar = new PIXI.Graphics();
     root.addChild(hud.planBar);
-    hud.planText = label('', 17, C.hudInk, '700');
+    hud.planText = label('', 16, C.hudInk, '700');
     hud.planText.anchor.set(0.5);
-    hud.planText.x = 26 + 186; hud.planText.y = 112;
+    hud.planText.x = 370; hud.planText.y = 42;
     root.addChild(hud.planText);
 
     hud.comboBar = new PIXI.Graphics();
     root.addChild(hud.comboBar);
-    hud.comboText = label('', 20, C.hudInkSoft, '800');
+    hud.comboText = label('', 18, C.hudInkSoft, '800');
     hud.comboText.anchor.set(0, 0.5);
-    hud.comboText.x = 628; hud.comboText.y = 112;
+    hud.comboText.x = 742; hud.comboText.y = 42;
     root.addChild(hud.comboText);
 
     hud.lives = new PIXI.Graphics();
@@ -1577,12 +1695,12 @@
 
     hud.sale = label('', 16, C.gold, '800');
     hud.sale.anchor.set(0.5);
-    hud.sale.x = W / 2; hud.sale.y = SIGN_Y + SIGN_H + 2;
+    hud.sale.x = PANEL_X + PANEL_W / 2; hud.sale.y = SIGN_Y + SIGN_H + 4;
     hud.sale.visible = false;
     root.addChild(hud.sale);
 
     var mute = new PIXI.Container();
-    mute.x = W - 74; mute.y = 16;
+    mute.x = W - 66; mute.y = 16;
     hud.muteIcon = new PIXI.Graphics();
     mute.addChild(hud.muteIcon);
     mute.eventMode = 'static';
@@ -1614,18 +1732,18 @@
   // Подвесной указатель отдела: в зале супермаркета он висит на тросах над рядом.
   function buildSign() {
     var g = new PIXI.Graphics();
-    var y = SIGN_Y - 6, h = SIGN_H - 14;
-    g.rect(168, y - 22, 5, 22).fill(C.steelDark);
-    g.rect(W - 173, y - 22, 5, 22).fill(C.steelDark);
-    g.roundRect(26, y + 6, W - 52, h, 8).fill({ color: 0x4A1109, alpha: 0.25 });
-    g.roundRect(22, y, W - 44, h, 14).fill(C.sign);
-    g.roundRect(22, y, W - 44, h, 14).stroke({ width: 4, color: 0x6B1E14 });
-    g.roundRect(30, y + 5, W - 60, 7, 3).fill({ color: 0xFFFFFF, alpha: 0.2 });
+    var x = PANEL_X - 10, w = PANEL_W + 20, y = SIGN_Y, h = SIGN_H;
+    g.rect(x + 140, y - 14, 5, 14).fill(C.steelDark);
+    g.rect(x + w - 145, y - 14, 5, 14).fill(C.steelDark);
+    g.roundRect(x + 4, y + 5, w, h, 8).fill({ color: 0x4A1109, alpha: 0.25 });
+    g.roundRect(x, y, w, h, 12).fill(C.sign);
+    g.roundRect(x, y, w, h, 12).stroke({ width: 4, color: 0x6B1E14 });
+    g.roundRect(x + 8, y + 4, w - 16, 6, 3).fill({ color: 0xFFFFFF, alpha: 0.2 });
     signNode = new PIXI.Container();
     signNode.addChild(g);
 
-    var t = label('ПРОДУКТЫ · ТОРГОВЫЙ ЗАЛ', 21, C.signAlt, '800');
-    t.anchor.set(0.5); t.x = W / 2; t.y = y + h / 2;
+    var t = label('ПРОДУКТЫ · ТОРГОВЫЙ ЗАЛ', 18, C.signAlt, '800');
+    t.anchor.set(0.5); t.x = x + w / 2; t.y = y + h / 2;
     signNode.addChild(t);
     root.addChild(signNode);
   }
@@ -1636,22 +1754,26 @@
 
     var g = new PIXI.Graphics();
     // корпус торгового стеллажа: боковые стойки, задняя стенка, планка-фриз
-    vGradient(g, PANEL_X - 10, TRAY_PANEL_Y, PANEL_W + 20, 208, C.steelLight, C.steel, 10);
-    g.roundRect(PANEL_X - 10, TRAY_PANEL_Y, PANEL_W + 20, 208, 14).fill(C.steel);
-    g.roundRect(PANEL_X - 10, TRAY_PANEL_Y + 2, PANEL_W + 20, 26, 12).fill({ color: 0xFFFFFF, alpha: 0.22 });
-    g.roundRect(PANEL_X - 2, TRAY_PANEL_Y + 40, PANEL_W + 4, 160, 10).fill(C.shelf);
-    g.roundRect(PANEL_X - 2, TRAY_PANEL_Y + 40, PANEL_W + 4, 10, 6).fill({ color: 0x8A5A29, alpha: 0.14 });
-    g.roundRect(PANEL_X - 2, TRAY_PANEL_Y + 6, PANEL_W + 4, 32, 10).fill(C.steelDark);
-    g.roundRect(PANEL_X - 10, TRAY_PANEL_Y, PANEL_W + 20, 208, 14).stroke({ width: 5, color: C.steelDark });
-    g.rect(PANEL_X - 10, TRAY_PANEL_Y + 4, PANEL_W + 20, 3).fill({ color: 0xFFFFFF, alpha: 0.35 });
+    var py = trayPanelY(), ph = trayPanelH();
+    vGradient(g, PANEL_X - 10, py, PANEL_W + 20, ph, C.steelLight, C.steel, 10);
+    g.roundRect(PANEL_X - 10, py, PANEL_W + 20, ph, 14).fill(C.steel);
+    g.roundRect(PANEL_X - 10, py + 2, PANEL_W + 20, 26, 12).fill({ color: 0xFFFFFF, alpha: 0.22 });
+    g.roundRect(PANEL_X - 2, py + 40, PANEL_W + 4, ph - 48, 10).fill(C.shelf);
+    g.roundRect(PANEL_X - 2, py + 40, PANEL_W + 4, 10, 6).fill({ color: 0x8A5A29, alpha: 0.14 });
+    if (trayRows() > 1) {                                   // полка второго ряда
+      g.roundRect(PANEL_X - 2, trayRowY(1) - 16, PANEL_W + 4, 10, 6).fill({ color: 0x8A5A29, alpha: 0.14 });
+    }
+    g.roundRect(PANEL_X - 2, py + 6, PANEL_W + 4, 32, 10).fill(C.steelDark);
+    g.roundRect(PANEL_X - 10, py, PANEL_W + 20, ph, 14).stroke({ width: 5, color: C.steelDark });
+    g.rect(PANEL_X - 10, py + 4, PANEL_W + 20, 3).fill({ color: 0xFFFFFF, alpha: 0.35 });
     layers.trayStatic.addChild(g);
 
     var cap = label('КАЖДЫЙ ТОВАР В СВОЙ ОТДЕЛ · ТРИ ОДИНАКОВЫХ = ПРОДАЖА', 15, 0xE7EFF5, '800');
-    cap.anchor.set(0.5); cap.x = W / 2; cap.y = TRAY_PANEL_Y + 22;
+    cap.anchor.set(0.5); cap.x = W / 2; cap.y = trayPanelY() + 22;
     layers.trayStatic.addChild(cap);
 
     var w = traySlotW();
-    ZONES.forEach(function (z) {
+    activeZones().forEach(function (z) {
       var node = new PIXI.Container();
       var box = zoneBox(z.id);
 
@@ -1676,15 +1798,15 @@
       var r = zoneRange(z.id);
       for (var i = r.from; i < r.to; i++) {
         var slot = new PIXI.Graphics();
-        var sx = slotX(i);
-        slot.roundRect(sx, TRAY_Y, w, TRAY_H, 4).fill({ color: 0xFFFFFF, alpha: 0.5 });
-        slot.roundRect(sx, TRAY_Y, w, TRAY_H, 4).stroke({ width: 2, color: C.steel, alpha: 0.45 });
-        slot.rect(sx, TRAY_Y, w, 5).fill({ color: C.steelDark, alpha: 0.10 });
+        var sx = slotX(i), sy = slotY(i), sh = trayH();
+        slot.roundRect(sx, sy, w, sh, 4).fill({ color: 0xFFFFFF, alpha: 0.5 });
+        slot.roundRect(sx, sy, w, sh, 4).stroke({ width: 2, color: C.steel, alpha: 0.45 });
+        slot.rect(sx, sy, w, 5).fill({ color: C.steelDark, alpha: 0.10 });
         // ценникодержатель под ячейкой — фирменная деталь торгового зала
-        slot.roundRect(sx + 3, TRAY_Y + TRAY_H - 20, w - 6, 13, 2).fill(0xFFFFFF);
-        slot.roundRect(sx + 3, TRAY_Y + TRAY_H - 20, w - 6, 13, 2).stroke({ width: 1.5, color: C.steel, alpha: 0.8 });
-        slot.rect(sx + 6, TRAY_Y + TRAY_H - 16, (w - 12) * 0.55, 3).fill({ color: C.ink, alpha: 0.35 });
-        slot.rect(sx + 6, TRAY_Y + TRAY_H - 12, (w - 12) * 0.32, 3).fill({ color: C.ink, alpha: 0.2 });
+        slot.roundRect(sx + 3, sy + sh - 20, w - 6, 13, 2).fill(0xFFFFFF);
+        slot.roundRect(sx + 3, sy + sh - 20, w - 6, 13, 2).stroke({ width: 1.5, color: C.steel, alpha: 0.8 });
+        slot.rect(sx + 6, sy + sh - 16, (w - 12) * 0.55, 3).fill({ color: C.ink, alpha: 0.35 });
+        slot.rect(sx + 6, sy + sh - 12, (w - 12) * 0.32, 3).fill({ color: C.ink, alpha: 0.2 });
         node.addChild(slot);
       }
 
@@ -1710,22 +1832,22 @@
     var g = new PIXI.Graphics();
     var bh = BELT_H + 70;
     // коробка поставки: картон, отогнутые клапаны и полоса скотча
-    g.roundRect(PANEL_X, BELT_PANEL_Y, PANEL_W, bh, 14).fill(C.cardboard);
-    g.roundRect(PANEL_X + 7, BELT_PANEL_Y + 34, PANEL_W - 14, bh - 41, 10).fill(C.cardboardLight);
-    g.rect(PANEL_X + 7, BELT_PANEL_Y + 34, PANEL_W - 14, 6).fill({ color: 0x8A5A29, alpha: 0.2 });
-    g.roundRect(PANEL_X, BELT_PANEL_Y, PANEL_W, bh, 14).stroke({ width: 5, color: 0x8A5A29 });
-    g.rect(PANEL_X + PANEL_W / 2 - 34, BELT_PANEL_Y, 68, 34).fill({ color: 0xF2E2C4, alpha: 0.75 });
-    g.rect(PANEL_X + PANEL_W / 2 - 34, BELT_PANEL_Y, 68, 34).stroke({ width: 2, color: 0x8A5A29, alpha: 0.35 });
-    g.roundRect(PANEL_X + 14, BELT_Y + BELT_H - 10, PANEL_W - 28, 14, 4).fill({ color: 0x8A5A29, alpha: 0.28 });
+    g.roundRect(BELT_X, BELT_PANEL_Y, BELT_W, bh, 14).fill(C.cardboard);
+    g.roundRect(BELT_X + 7, BELT_PANEL_Y + 30, BELT_W - 14, bh - 37, 10).fill(C.cardboardLight);
+    g.rect(BELT_X + 7, BELT_PANEL_Y + 30, BELT_W - 14, 6).fill({ color: 0x8A5A29, alpha: 0.2 });
+    g.roundRect(BELT_X, BELT_PANEL_Y, BELT_W, bh, 14).stroke({ width: 5, color: 0x8A5A29 });
+    g.rect(BELT_X + BELT_W / 2 - 34, BELT_PANEL_Y, 68, 30).fill({ color: 0xF2E2C4, alpha: 0.75 });
+    g.rect(BELT_X + BELT_W / 2 - 34, BELT_PANEL_Y, 68, 30).stroke({ width: 2, color: 0x8A5A29, alpha: 0.35 });
+    g.roundRect(BELT_X + 14, BELT_Y + BELT_H - 10, BELT_W - 28, 14, 4).fill({ color: 0x8A5A29, alpha: 0.28 });
     root.addChild(g);
 
     var t = label('ПОСТАВКА', 18, 0x6B4218, '800');
-    t.x = PANEL_X + 22; t.y = BELT_PANEL_Y + 9;
+    t.x = BELT_X + 20; t.y = BELT_PANEL_Y + 7;
     root.addChild(t);
 
     hud.beltCount = label('', 18, 0x6B4218, '700');
     hud.beltCount.anchor.set(1, 0);
-    hud.beltCount.x = PANEL_X + PANEL_W - 24; hud.beltCount.y = BELT_PANEL_Y + 12;
+    hud.beltCount.x = BELT_X + BELT_W - 20; hud.beltCount.y = BELT_PANEL_Y + 8;
     root.addChild(hud.beltCount);
   }
 
@@ -1733,18 +1855,18 @@
     layers.fridgeStatic.removeChildren();
     var g = new PIXI.Graphics();
     var fh = FRIDGE_SLOT_H + 28;
-    g.roundRect(PANEL_X, FRIDGE_Y - 14, PANEL_W, fh, 14).fill(C.chill);
-    g.roundRect(PANEL_X, FRIDGE_Y - 14, PANEL_W, fh, 14).stroke({ width: 4, color: C.steelDark, alpha: 0.75 });
-    g.roundRect(PANEL_X + 4, FRIDGE_Y - 10, PANEL_W - 8, 8, 3).fill({ color: 0xFFFFFF, alpha: 0.7 });
+    g.roundRect(BELT_X, FRIDGE_Y - 14, BELT_W, fh, 14).fill(C.chill);
+    g.roundRect(BELT_X, FRIDGE_Y - 14, BELT_W, fh, 14).stroke({ width: 4, color: C.steelDark, alpha: 0.75 });
+    g.roundRect(BELT_X + 4, FRIDGE_Y - 10, BELT_W - 8, 8, 3).fill({ color: 0xFFFFFF, alpha: 0.7 });
     // блик стекла витрины
-    g.moveTo(PANEL_X + 150, FRIDGE_Y - 14).lineTo(PANEL_X + 196, FRIDGE_Y - 14)
-     .lineTo(PANEL_X + 138, FRIDGE_Y - 14 + fh).lineTo(PANEL_X + 92, FRIDGE_Y - 14 + fh)
+    g.moveTo(BELT_X + 150, FRIDGE_Y - 14).lineTo(BELT_X + 196, FRIDGE_Y - 14)
+     .lineTo(BELT_X + 138, FRIDGE_Y - 14 + fh).lineTo(BELT_X + 92, FRIDGE_Y - 14 + fh)
      .closePath().fill({ color: 0xFFFFFF, alpha: 0.28 });
     layers.fridgeStatic.addChild(g);
 
     var t = label('ХОЛОДИЛЬНИК', 16, 0x2B5A74, '800');
     t.anchor.set(0, 0.5);
-    t.x = PANEL_X + 20; t.y = FRIDGE_Y + FRIDGE_SLOT_H / 2;
+    t.x = BELT_X + 18; t.y = FRIDGE_Y + FRIDGE_SLOT_H / 2;
     layers.fridgeStatic.addChild(t);
 
     var w = fridgeSlotW();
@@ -1789,15 +1911,15 @@
     var w = traySlotW();
     state.tray.forEach(function (pid, i) {
       if (!pid || hiddenSlots['slot:' + i]) return;
-      var c = productPiece(productById(pid), w, TRAY_H, { tilt: ((i % 2) ? 1 : -1) * 0.03 });
-      c.x = slotX(i); c.y = TRAY_Y;
-      if (fx && fx.pop === i) squashIn(c, w, TRAY_H);
+      var c = productPiece(productById(pid), w, trayH(), { tilt: ((i % 2) ? 1 : -1) * 0.03 });
+      c.x = slotX(i); c.y = slotY(i);
+      if (fx && fx.pop === i) squashIn(c, w, trayH());
       layers.trayItems.addChild(c);
       layers.trayItems.addChild(freshBadge(i, productById(pid)));
     });
 
     var sel = selectedProduct();
-    ZONES.forEach(function (z) {
+    activeZones().forEach(function (z) {
       var r = zoneRange(z.id), free = false;
       for (var i = r.from; i < r.to; i++) if (state.tray[i] === null) free = true;
       zoneNodes[z.id].hint.alpha = (sel && sel.section === z.id && free) ? 0.9 : 0;
@@ -1840,8 +1962,8 @@
     var b = state.boosters, playing = state.status === 'playing';
     layers.buttons.addChild(
       button(BTN_X0, BTN_Y, BTN_W, BTN_H, 'Вернуть', 'ещё ' + b.undo, b.undo > 0 && playing, boosterUndo),
-      button(BTN_X0 + BTN_W + BTN_GAP, BTN_Y, BTN_W, BTN_H, 'Отложить', 'ещё ' + b.fridge, b.fridge > 0 && playing, boosterFridge),
-      button(BTN_X0 + (BTN_W + BTN_GAP) * 2, BTN_Y, BTN_W, BTN_H, 'Перемешать', 'ещё ' + b.shuffle, b.shuffle > 0 && playing, boosterShuffle)
+      button(BTN_X0, BTN_Y + BTN_H + BTN_GAP, BTN_W, BTN_H, 'Отложить', 'ещё ' + b.fridge, b.fridge > 0 && playing, boosterFridge),
+      button(BTN_X0, BTN_Y + (BTN_H + BTN_GAP) * 2, BTN_W, BTN_H, 'Перемешать', 'ещё ' + b.shuffle, b.shuffle > 0 && playing, boosterShuffle)
     );
   }
 
@@ -1849,29 +1971,41 @@
 
   var drag = null;
 
-  // Отсчёт срока годности: число ходов до списания прямо на товаре.
+  // Срок годности показан циферблатом: сектор тает по ходам, стрелка идёт по
+  // кругу, цвет предупреждает заранее. Цифра на мелкой ячейке не читалась.
   function freshBadge(i, product) {
-    var left = state.fresh[i], full = lifeOf(product);
-    var w = traySlotW(), x = slotX(i) + w - 13, y = TRAY_Y + 12;
+    var left = Math.max(0, state.fresh[i]), full = lifeOf(product);
+    var frac = Math.max(0, Math.min(1, left / full));
+    var w = traySlotW(), r = 12, x = slotX(i) + w - r - 3, y = slotY(i) + r + 3;
     var col = left <= 2 ? C.red : (left <= Math.ceil(full * 0.4) ? C.gold : C.green);
+    var start = -Math.PI / 2, end = start + Math.PI * 2 * frac;
 
     var box = new PIXI.Container();
     var g = new PIXI.Graphics();
-    g.circle(x, y, 12).fill(col);
-    g.circle(x, y, 12).stroke({ width: 2.5, color: C.ink, alpha: 0.85 });
+    g.circle(x, y, r).fill(0xFFFFFF);
+    if (frac > 0) {
+      g.moveTo(x, y).arc(x, y, r - 2.5, start, end).closePath().fill({ color: col, alpha: 0.95 });
+    }
+    g.circle(x, y, r).stroke({ width: 2.5, color: C.ink, alpha: 0.85 });
+    for (var m = 0; m < 4; m++) {                 // деления циферблата
+      var a = start + m * Math.PI / 2;
+      g.moveTo(x + Math.cos(a) * (r - 4), y + Math.sin(a) * (r - 4))
+       .lineTo(x + Math.cos(a) * (r - 1), y + Math.sin(a) * (r - 1))
+       .stroke({ width: 1.5, color: C.ink, alpha: 0.5 });
+    }
+    g.moveTo(x, y).lineTo(x + Math.cos(end) * (r - 4), y + Math.sin(end) * (r - 4))
+     .stroke({ width: 2.5, color: C.ink, cap: 'round' });
+    g.circle(x, y, 2).fill(C.ink);
     box.addChild(g);
-    var t = label(String(Math.max(0, left)), 13, 0xFFFFFF, '800');
-    t.anchor.set(0.5); t.x = x; t.y = y;
-    box.addChild(t);
-    if (left <= 2) box.alpha = 0.7 + 0.3 * Math.abs(Math.sin(Date.now() / 220));
+    if (left <= 2) box.alpha = 0.72 + 0.28 * Math.abs(Math.sin(Date.now() / 220));
     return box;
   }
 
   // Списание просрочки: минус себестоимость прямо над ячейкой.
   function spoilFx(i, product) {
     var x = slotX(i) + traySlotW() / 2;
-    floatText(x, TRAY_Y + 20, '−' + money(costOf(product)), C.red);
-    flashArea(x, TRAY_Y + TRAY_H / 2, false);
+    floatText(x, slotY(i) + 20, '−' + money(costOf(product)), C.red);
+    flashArea(x, slotY(i) + trayH() / 2, false);
   }
 
   function dragging(index) {
@@ -1879,10 +2013,11 @@
   }
 
   function zoneUnder(pt) {
-    for (var i = 0; i < ZONES.length; i++) {
-      var b = zoneBox(ZONES[i].id);
+    var zs = activeZones();
+    for (var i = 0; i < zs.length; i++) {
+      var b = zoneBox(zs[i].id);
       if (pt.x >= b.x - 6 && pt.x <= b.x + b.w + 6 && pt.y >= b.y - 40 && pt.y <= b.y + b.h + 10) {
-        return ZONES[i].id;
+        return zs[i].id;
       }
     }
     return null;
@@ -1905,15 +2040,15 @@
       sfx('select');
       render();
       var w = traySlotW();
-      drag.ghost = productPiece(drag.product, w * 1.25, TRAY_H * 1.25, {});
-      drag.ghost.pivot.set(w * 0.62, TRAY_H * 0.62);
+      drag.ghost = productPiece(drag.product, w * 1.25, trayH() * 1.25, {});
+      drag.ghost.pivot.set(w * 0.62, trayH() * 0.62);
       layers.fx.addChild(drag.ghost);
     }
     drag.ghost.x = p.x; drag.ghost.y = p.y;
     drag.ghost.rotation = Math.max(-0.2, Math.min(0.2, (p.x - drag.startX) / 900));
 
     var over = zoneUnder(p);
-    ZONES.forEach(function (z) {
+    activeZones().forEach(function (z) {
       var r = zoneRange(z.id), free = false;
       for (var i = r.from; i < r.to; i++) if (state.tray[i] === null) free = true;
       var own = drag.product.section === z.id;
@@ -1927,15 +2062,31 @@
     drag = null;
     if (d.ghost) d.ghost.destroy();
 
-    if (!d.active) {                              // обычный тап — старое поведение
-      select(d.from, d.index);
+    if (!d.active) {                              // обычный тап — сразу в свой отдел
+      tapItem(d.from, d.index);
       return;
     }
     var p = root.toLocal(ev.global);
     var zone = zoneUnder(p);
     state.selected = { from: d.from, index: d.index };
     if (zone) place(zone);
-    else { state.selected = null; toast('Товар кладут на прилавок'); render(); }
+    else place(d.product.section);                 // бросок мимо — товар всё равно знает свой отдел
+  }
+
+  var pendingFridge = false;          // «Отложить» ждёт, какой товар убрать
+
+  // Зона у товара всегда одна, второй тап не нужен: берём и сразу кладём.
+  function tapItem(from, index) {
+    if (!state || state.status !== 'playing') return false;
+    var src = from === 'belt' ? state.belt.slice(0, beltVisible()) : state.fridge;
+    var id = src[index];
+    if (!id) return false;
+    state.selected = { from: from, index: index };
+    if (pendingFridge && from === 'belt') {
+      pendingFridge = false;
+      return boosterFridge();
+    }
+    return place(productById(id).section);
   }
 
   function selectedProduct() {
@@ -1948,100 +2099,140 @@
 
   // Очередь покупателей: кто, что просит и сколько ещё подождёт.
   function renderQueue() {
-    var qw = queueW(), compact = qw < 176;          // с рекламой карточек больше, а места столько же
+    var qw = queueW(), qh = queueH();
     for (var i = 0; i < queueSize(); i++) {
       var c = state.customers[i];
       var box = new PIXI.Container();
-      box.x = queueX(i); box.y = QUEUE_Y;
+      box.x = queueX(); box.y = queueY(i);
 
       var g = new PIXI.Graphics();
-      g.roundRect(3, 6, qw, QUEUE_H, 16).fill({ color: 0x0F1A22, alpha: 0.16 });
-      g.roundRect(0, 0, qw, QUEUE_H, 16).fill(c ? C.panel : 0xE4EAEF);
-      g.roundRect(0, 0, qw, QUEUE_H, 16).stroke({ width: 4, color: c ? C.steelDark : C.steel });
-      g.rect(0, 0, qw, 6).fill({ color: c ? C.sign : C.steel, alpha: c ? 0.9 : 0.5 });
+      g.roundRect(3, 5, qw, qh, 14).fill({ color: 0x0F1A22, alpha: 0.16 });
+      g.roundRect(0, 0, qw, qh, 14).fill(c ? C.panel : 0xE4EAEF);
+      g.roundRect(0, 0, qw, qh, 14).stroke({ width: 4, color: c ? C.steelDark : C.steel });
+      g.rect(0, 0, 8, qh).fill({ color: c ? C.sign : C.steel, alpha: c ? 0.9 : 0.5 });
       box.addChild(g);
 
       if (!c) {
-        var wait = labelWrap('ждём покупателя', 15, C.inkSoft, '600', qw - 24);
-        wait.anchor.set(0.5); wait.x = qw / 2; wait.y = QUEUE_H / 2;
+        var wait = label('ждём покупателя', 15, C.inkSoft, '600');
+        wait.anchor.set(0.5); wait.x = qw / 2; wait.y = qh / 2;
         box.addChild(wait);
         layers.queue.addChild(box);
         continue;
       }
 
       var ratio = c.patience / c.max;
-      var counts = trayCounts();
-      var lines = c.order;
+      var mood = customerMood(c);
 
-      var faceR = compact ? 21 : 26;
-      var face = personGraphic(faceR, c.face, ratio > 0.5 ? 'happy' : (ratio > 0.25 ? 'wait' : 'sad'));
-      face.x = compact ? qw / 2 : 44;
-      face.y = compact ? 42 : 48;
+      var face = personGraphic(Math.min(30, qh * 0.26), c.face, mood);
+      face.x = 54; face.y = qh * 0.46;
       box.addChild(face);
 
-      // набор покупателя: сколько позиций, столько кружков, собранное зеленеет
-      var r = compact ? 15 : (lines.length > 1 ? 20 : 32);
-      var cw = r * 2 + (compact ? 6 : 8);
-      var rowW = lines.length * cw;
-      var x0 = compact ? (qw - rowW) / 2 + cw / 2 : qw - 16 - rowW + cw / 2;
-      var cy = compact ? 104 : 44;
-
+      // корзина: что уже забрано — с зелёной галочкой
+      var lines = c.order, r = Math.min(21, qh * 0.19), step = r * 2 + 8;
+      var x0 = 104 + r, cy = qh * 0.38;
       lines.forEach(function (l, li) {
         var lp = productById(l.id);
-        var cx = x0 + li * cw;
-        var done = (counts[l.id] || 0) >= l.n;
+        var cx = x0 + li * step;
+        var got = c.got[l.id] || 0, done = got >= l.n;
 
         var disc = new PIXI.Graphics();
-        disc.circle(cx, cy, r).fill(done ? mix(C.green, 0xFFFFFF, 0.72) : mix(lp.accent, 0xFFFFFF, 0.45));
+        disc.circle(cx, cy, r).fill(done ? mix(C.green, 0xFFFFFF, 0.78) : mix(lp.accent, 0xFFFFFF, 0.45));
         disc.circle(cx, cy, r).stroke({ width: 3, color: done ? C.green : mix(lp.accent, C.ink, 0.45) });
         box.addChild(disc);
 
         var ic = productIcon(lp, r * 1.5);
         ic.x = cx; ic.y = cy;
+        ic.alpha = done ? 0.55 : 1;
         box.addChild(ic);
 
-        if (l.n > 1) {
-          var br = compact ? 10 : 13;
+        if (done) {
+          var tick = new PIXI.Graphics();
+          tick.circle(cx + r * 0.72, cy + r * 0.72, r * 0.46).fill(C.green);
+          tick.circle(cx + r * 0.72, cy + r * 0.72, r * 0.46).stroke({ width: 2, color: 0xFFFFFF });
+          tick.moveTo(cx + r * 0.72 - r * 0.22, cy + r * 0.72)
+              .lineTo(cx + r * 0.72 - r * 0.04, cy + r * 0.72 + r * 0.18)
+              .lineTo(cx + r * 0.72 + r * 0.24, cy + r * 0.72 - r * 0.2)
+              .stroke({ width: 3, color: 0xFFFFFF, cap: 'round', join: 'round' });
+          box.addChild(tick);
+        } else if (l.n > 1) {
           var badge = new PIXI.Graphics();
-          badge.circle(cx + r * 0.8, cy + r * 0.8, br).fill(C.ink);
+          badge.circle(cx + r * 0.75, cy + r * 0.75, r * 0.5).fill(C.ink);
           box.addChild(badge);
-          var bt = label('×' + l.n, compact ? 11 : 14, 0xFFFFFF, '800');
-          bt.anchor.set(0.5); bt.x = cx + r * 0.8; bt.y = cy + r * 0.8;
+          var bt = label(got + '/' + l.n, Math.max(10, r * 0.5), 0xFFFFFF, '800');
+          bt.anchor.set(0.5); bt.x = cx + r * 0.75; bt.y = cy + r * 0.75;
           box.addChild(bt);
         }
       });
 
-      if (!compact) {
-        var title = lines.length === 1
-          ? productById(lines[0].id).name + ' ×' + lines[0].n
-          : 'Набор · ' + orderTotal(c) + ' товара';
-        var want = label(title, 17, C.ink, '800');
-        want.anchor.set(0.5); want.x = qw / 2; want.y = 108;
-        box.addChild(want);
+      var reward = label('+50%', 13, C.green, '800');
+      reward.anchor.set(1, 0); reward.x = qw - 12; reward.y = 8;
+      box.addChild(reward);
 
-        var reward = label('+50% к продаже', 14, C.green, '700');
-        reward.anchor.set(0.5); reward.x = qw / 2; reward.y = 134;
-        box.addChild(reward);
-      } else {
-        var short = label('+50%', 13, C.green, '800');
-        short.anchor.set(0.5); short.x = qw / 2; short.y = 136;
-        box.addChild(short);
-      }
+      // настроение подписью: покупателю видно, что он вот-вот уйдёт
+      var note = label(moodWord(mood), 12, mood === 'angry' ? C.red : C.inkSoft, '700');
+      note.anchor.set(0, 0.5); note.x = 100; note.y = qh - 44;
+      box.addChild(note);
 
-      var bm = compact ? 12 : 20;
+      var by = qh - 28, bx = 100, bw = qw - bx - 14;
       var bar = new PIXI.Graphics();
-      bar.roundRect(bm, 158, qw - bm * 2, 24, 5).fill(0xE2E9EE);
-      bar.roundRect(bm, 158, Math.max(14, (qw - bm * 2) * ratio), 24, 12)
+      bar.roundRect(bx, by, bw, 20, 5).fill(0xE2E9EE);
+      bar.roundRect(bx, by, Math.max(12, bw * ratio), 20, 10)
          .fill(ratio > 0.5 ? 0x5CCA65 : (ratio > 0.25 ? C.gold : C.red));
-      bar.roundRect(bm, 158, qw - bm * 2, 24, 12).stroke({ width: 4, color: C.ink, alpha: 0.8 });
+      bar.roundRect(bx, by, bw, 20, 10).stroke({ width: 3, color: C.ink, alpha: 0.8 });
       box.addChild(bar);
 
-      var pt = label(compact ? String(c.patience) : 'ждёт ещё ' + c.patience, 14, C.ink, '700');
-      pt.anchor.set(0.5); pt.x = qw / 2; pt.y = 170;
+      var pt = label('ждёт ещё ' + c.patience, 13, C.ink, '700');
+      pt.anchor.set(0.5); pt.x = bx + bw / 2; pt.y = by + 10;
       box.addChild(pt);
+
+      if (c.cheer > 0) box.addChild(emotionBubble(90, 20, 'cheer'));
+      else if (mood === 'angry') box.addChild(emotionBubble(90, 20, 'angry'));
+      else if (mood === 'worry') box.addChild(emotionBubble(90, 20, 'worry'));
 
       layers.queue.addChild(box);
     }
+  }
+
+  // Настроение покупателя: свежий заказ, ожидание, беспокойство, злость.
+  // Только что забранная позиция на пару ходов поднимает настроение.
+  function customerMood(c) {
+    var ratio = c.patience / c.max;
+    if (c.cheer > 0) return 'happy';
+    if (ratio > 0.6) return 'happy';
+    if (ratio > 0.35) return 'wait';
+    if (ratio > 0.15) return 'worry';
+    return 'angry';
+  }
+
+  function moodWord(mood) {
+    return mood === 'happy' ? 'доволен' : mood === 'wait' ? 'ждёт'
+         : mood === 'worry' ? 'нервничает' : 'вот-вот уйдёт';
+  }
+
+  // Пузырь эмоции рядом с лицом — сердечко, капля или знак раздражения.
+  function emotionBubble(x, y, kind) {
+    var g = new PIXI.Graphics();
+    g.circle(x, y, 15).fill(kind === 'cheer' ? 0xFFEFF3 : (kind === 'angry' ? 0xFFE6E2 : 0xEAF2F8));
+    g.circle(x, y, 15).stroke({ width: 2.5, color: C.ink, alpha: 0.75 });
+    if (kind === 'cheer') {
+      g.moveTo(x, y + 6)
+       .quadraticCurveTo(x - 10, y - 2, x - 4, y - 7)
+       .quadraticCurveTo(x, y - 10, x, y - 4)
+       .quadraticCurveTo(x, y - 10, x + 4, y - 7)
+       .quadraticCurveTo(x + 10, y - 2, x, y + 6)
+       .fill(0xE2456A);
+    } else if (kind === 'angry') {
+      [[-1, -1], [1, -1]].forEach(function (d) {
+        g.moveTo(x + d[0] * 7, y + d[1] * 7).lineTo(x + d[0] * 1, y + d[1] * 1)
+         .stroke({ width: 3, color: C.red, cap: 'round' });
+      });
+      g.moveTo(x - 7, y + 2).lineTo(x - 1, y + 8).stroke({ width: 3, color: C.red, cap: 'round' });
+      g.moveTo(x + 7, y + 2).lineTo(x + 1, y + 8).stroke({ width: 3, color: C.red, cap: 'round' });
+    } else {
+      g.moveTo(x, y - 8).quadraticCurveTo(x + 7, y + 2, x, y + 8)
+       .quadraticCurveTo(x - 7, y + 2, x, y - 8).fill(0x5AA8DC);
+    }
+    return g;
   }
 
   function renderHud() {
@@ -2049,7 +2240,7 @@
     hud.shift.text = 'Смена ' + (state.shiftIdx + 1);
     hud.streak.text = 'смен подряд: ' + streak;
 
-    var bx = 26, by = 99, bw = 372, bh = 27;
+    var bx = 220, by = 30, bw = 300, bh = 24;
     var p = Math.min(state.served / state.goal, 1);
     hud.planBar.clear();
     hud.planBar.roundRect(bx, by, bw, bh, 5).fill(C.hudTrack);
@@ -2057,7 +2248,7 @@
     hud.planBar.roundRect(bx, by, bw, bh, 5).stroke({ width: 3, color: C.steel, alpha: 0.8 });
     hud.planText.text = 'Обслужено  ' + state.served + ' / ' + state.goal;
 
-    var cx = 432, segs = 4, sw = 42, gap = 6;
+    var cx = 570, segs = 4, sw = 38, gap = 5;
     hud.comboBar.clear();
     for (var i = 0; i < segs; i++) {
       var on = state.combo > i;
@@ -2073,9 +2264,9 @@
     hud.lives.clear();
     var lives = state.cfg.lives, left = Math.max(0, lives - state.lost);
     for (var L = 0; L < lives; L++) {
-      var lx = W - 92 - L * 26, on = L < left;
-      hud.lives.circle(lx, 76, 9).fill(on ? C.red : C.hudTrack);
-      hud.lives.circle(lx, 76, 9).stroke({ width: 2.5, color: C.steel, alpha: on ? 0.9 : 0.5 });
+      var lx = W - 86 - L * 24, on = L < left;
+      hud.lives.circle(lx, 62, 8).fill(on ? C.red : C.hudTrack);
+      hud.lives.circle(lx, 62, 8).stroke({ width: 2.5, color: C.steel, alpha: on ? 0.9 : 0.5 });
     }
 
     if (state.saleProduct) {
@@ -2109,7 +2300,7 @@
     ghost.x = from.x; ghost.y = from.y;
     layers.fx.addChild(ghost);
     var arc = 90 + Math.random() * 30;
-    var sx = tw / w, sy = TRAY_H / BELT_H;
+    var sx = tw / w, sy = trayH() / BELT_H;
     anim(200, function (p) {
       var e = easeOut(p);
       ghost.x = from.x + (to.x - from.x) * e;
@@ -2126,9 +2317,9 @@
 
     var w = traySlotW();
     fx.slots.forEach(function (slot) {
-      var ghost = productPiece(fx.product, w, TRAY_H, {});
-      ghost.x = slotX(slot) + w / 2; ghost.y = TRAY_Y + TRAY_H / 2;
-      ghost.pivot.set(w / 2, TRAY_H / 2);
+      var ghost = productPiece(fx.product, w, trayH(), {});
+      ghost.x = slotX(slot) + w / 2; ghost.y = slotY(slot) + trayH() / 2;
+      ghost.pivot.set(w / 2, trayH() / 2);
       layers.fx.addChild(ghost);
       anim(300, function (p) {
         ghost.scale.set(1 + 0.3 * p);
@@ -2138,16 +2329,39 @@
     });
 
     var cx = slotX(fx.slots[Math.floor(fx.slots.length / 2)]) + w / 2;
-    flashArea(cx, TRAY_Y + TRAY_H / 2, fx.perfect);
-    if (fx.perfect) confetti(cx, TRAY_Y + TRAY_H / 2);
+    var cy = slotY(fx.slots[0]) + trayH() / 2;
+    flashArea(cx, cy, fx.perfect);
+    if (fx.perfect) confetti(cx, cy);
     if (fx.order) orderServedFx();
     if (fx.perfect && fx.combo >= 2) comboSticker(fx.mult);
     sfx(fx.perfect ? 'sale' : 'wrong', fx.combo);
 
     var note = fx.order ? 'заказ!' : (fx.perfect ? '×' + fx.mult.toFixed(1) : 'не своя зона');
-    floatText(cx, TRAY_Y + 20, '+' + money(fx.gain) + '  ' + note,
+    floatText(cx, cy - trayH() / 2 + 20, '+' + money(fx.gain) + '  ' + note,
       fx.perfect || fx.order ? C.green : C.red);
-    spawnCoins(cx, TRAY_Y + TRAY_H / 2, fx.perfect ? 8 : 4);
+    spawnCoins(cx, cy, fx.perfect ? 8 : 4);
+    countRevenueTo(state.revenue);
+  }
+
+  // Товар улетает с полки к покупателю: видно, кто именно что забрал.
+  function pickupFx(c, taken) {
+    var idx = Math.max(0, state.customers.indexOf(c));
+    var to = { x: queueX() + 30, y: queueY(idx) + queueH() / 2 - 24 };
+    taken.forEach(function (t) {
+      flyGhost(productById(t.id), { x: slotX(t.slot), y: slotY(t.slot) }, to, function () {});
+    });
+    sfx('select');
+  }
+
+  // Корзина собрана: покупатель платит и уходит.
+  function orderPaidFx(gain, mult) {
+    orderServedFx();
+    if (state.combo >= 2) comboSticker(mult);
+    var cx = PANEL_X + PANEL_W / 2, cy = trayPanelY() - 24;
+    floatText(cx, cy, '+' + money(gain) + '  заказ!', C.green);
+    spawnCoins(cx, cy, 8);
+    confetti(cx, cy);
+    sfx('sale', state.combo);
     countRevenueTo(state.revenue);
   }
 
@@ -2163,13 +2377,13 @@
     var face = personGraphic(20, state.lastFace || 0, 'happy');
     face.x = -96; face.y = 0;
     box.addChild(face);
-    box.x = W / 2; box.y = TRAY_PANEL_Y - 28;
+    box.x = W / 2; box.y = trayPanelY() - 28;
     box.rotation = 0.05;
     box.scale.set(0.3);
     layers.fx.addChild(box);
     anim(1100, function (p) {
       box.scale.set(0.3 + 0.7 * easeBack(Math.min(p * 2.4, 1)));
-      box.y = TRAY_PANEL_Y - 28 - 22 * easeOut(p);
+      box.y = trayPanelY() - 28 - 22 * easeOut(p);
       box.alpha = p > 0.7 ? (1 - p) * 3.3 : 1;
     }, function () { box.destroy(); });
   }
@@ -2217,13 +2431,13 @@
     var t = label('КОМБО ×' + mult.toFixed(1), 25, 0xFFFFFF, '800');
     t.anchor.set(0.5);
     box.addChild(t);
-    box.x = W / 2; box.y = TRAY_Y + 40;
+    box.x = W / 2; box.y = trayTop() + 40;
     box.rotation = -0.09;
     box.scale.set(0.3);
     layers.fx.addChild(box);
     anim(1000, function (p) {
       box.scale.set(0.3 + 0.7 * easeBack(Math.min(p * 2.5, 1)));
-      box.y = TRAY_Y + 40 - 20 * easeOut(p);
+      box.y = trayTop() + 40 - 20 * easeOut(p);
       box.alpha = p > 0.65 ? (1 - p) * 2.9 : 1;
     }, function () { box.destroy(); });
   }
@@ -2273,7 +2487,7 @@
 
   function flashArea(x, y, ok) {
     var g = new PIXI.Graphics();
-    g.roundRect(x - 130, y - TRAY_H / 2 - 8, 260, TRAY_H + 16, 16).fill(ok ? 0x6CE163 : 0xEF7A7A);
+    g.roundRect(x - 130, y - trayH() / 2 - 8, 260, trayH() + 16, 16).fill(ok ? 0x6CE163 : 0xEF7A7A);
     g.alpha = 0.7;
     layers.fx.addChild(g);
     anim(340, function (p) { g.alpha = 0.7 * (1 - p); }, function () { g.destroy(); });
@@ -2333,6 +2547,20 @@
       g.roundRect(s * 0.18, s * 0.54, s * 0.64, s * 0.28, 6).stroke({ width: 4, color: C.ink });
       g.circle(s * 0.34, s * 0.24, s * 0.09).fill(C.gold);
       g.circle(s * 0.62, s * 0.24, s * 0.09).fill(0xFF675B);
+    } else if (id === 'chem') {
+      g.roundRect(s * 0.3, s * 0.32, s * 0.4, s * 0.5, s * 0.08).fill(0x4FA9CE);
+      g.roundRect(s * 0.3, s * 0.32, s * 0.4, s * 0.5, s * 0.08).stroke({ width: 4, color: C.ink });
+      g.roundRect(s * 0.38, s * 0.16, s * 0.24, s * 0.18, s * 0.05).fill(C.steelLight);
+      g.roundRect(s * 0.38, s * 0.16, s * 0.24, s * 0.18, s * 0.05).stroke({ width: 4, color: C.ink });
+      g.roundRect(s * 0.36, s * 0.46, s * 0.28, s * 0.2, 4).fill(0xFFFFFF);
+      g.circle(s * 0.74, s * 0.2, s * 0.05).fill(0x9FE3C6);
+      g.circle(s * 0.84, s * 0.3, s * 0.035).fill(0x9FE3C6);
+    } else if (id === 'meat') {
+      g.ellipse(s * 0.5, s * 0.52, s * 0.34, s * 0.26).fill(0xB0372A);
+      g.ellipse(s * 0.5, s * 0.52, s * 0.34, s * 0.26).stroke({ width: 4, color: C.ink });
+      g.ellipse(s * 0.42, s * 0.46, s * 0.12, s * 0.08).fill({ color: 0xE4867A, alpha: 0.9 });
+      g.roundRect(s * 0.28, s * 0.66, s * 0.44, s * 0.1, 5).fill(0xFFF3DE);
+      g.roundRect(s * 0.28, s * 0.66, s * 0.44, s * 0.1, 5).stroke({ width: 3, color: C.ink });
     } else if (id === 'ads') {
       g.moveTo(s * 0.2, s * 0.36).lineTo(s * 0.5, s * 0.2).lineTo(s * 0.5, s * 0.76)
        .lineTo(s * 0.2, s * 0.6).closePath().fill(C.gold);
@@ -2362,70 +2590,73 @@
     dim.rect(0, 0, W, H).fill({ color: 0x0E1820, alpha: 0.74 });
     overlay.addChild(dim);
 
-    var px = 32, py = 92, pw = W - 64, ph = 1096;
+    var pw = 980, ph = 612, px = (W - pw) / 2, py = (H - ph) / 2;
     var panel = new PIXI.Graphics();
-    panel.roundRect(px + 6, py + 10, pw, ph, 30).fill({ color: 0x000000, alpha: 0.3 });
-    panel.roundRect(px, py, pw, ph, 30).fill(C.panel);
-    panel.roundRect(px, py, pw, 100, 30).fill(C.steel);
-    panel.roundRect(px, py + 66, pw, 34).fill(C.steel);
-    panel.roundRect(px, py, pw, ph, 30).stroke({ width: 5, color: C.steelDark });
+    panel.roundRect(px + 6, py + 8, pw, ph, 18).fill({ color: 0x000000, alpha: 0.3 });
+    panel.roundRect(px, py, pw, ph, 18).fill(C.panel);
+    panel.roundRect(px, py, pw, 68, 18).fill(C.steel);
+    panel.roundRect(px, py + 44, pw, 24).fill(C.steel);
+    panel.roundRect(px, py, pw, ph, 18).stroke({ width: 4, color: C.steelDark });
     overlay.addChild(panel);
 
-    var title = label('Ваш магазин', 32, 0xFFFFFF, '800');
-    title.anchor.set(0, 0.5); title.x = px + 30; title.y = py + 50;
+    var title = label('Ваш магазин', 27, 0xFFFFFF, '800');
+    title.anchor.set(0, 0.5); title.x = px + 24; title.y = py + 34;
     overlay.addChild(title);
 
-    var wallet = label(money(meta.wallet), 30, 0xFFEEBE, '800');
-    wallet.anchor.set(1, 0.5); wallet.x = px + pw - 30; wallet.y = py + 50;
+    var wallet = label(money(meta.wallet), 26, 0xFFF3D0, '800');
+    wallet.anchor.set(1, 0.5); wallet.x = px + pw - 24; wallet.y = py + 34;
     overlay.addChild(wallet);
 
-    var rowY = py + 122, rowH = 142;        // шесть апгрейдов должны помещаться в панель
+    // в горизонте апгрейды ложатся в две колонки
+    var cols = 2, cw = (pw - 24 * (cols + 1)) / cols, ch = 108, gap = 12;
     UPGRADES.forEach(function (u, i) {
-      var y = rowY + i * rowH;
+      var col = i % cols, row = Math.floor(i / cols);
+      var x = px + 24 + col * (cw + 24), y = py + 84 + row * (ch + gap);
       var lvl = meta.up[u.id], price = upgradePrice(u);
 
-      var row = new PIXI.Graphics();
-      row.roundRect(px + 20, y, pw - 40, rowH - 14, 8).fill(i % 2 ? 0xF1F5F8 : 0xFFFFFF);
-      row.roundRect(px + 20, y, pw - 40, rowH - 14, 20).stroke({ width: 4, color: C.ink, alpha: 0.55 });
-      overlay.addChild(row);
+      var card = new PIXI.Graphics();
+      card.roundRect(x, y, cw, ch, 10).fill(row % 2 ? 0xF1F5F8 : 0xFFFFFF);
+      card.roundRect(x, y, cw, ch, 10).stroke({ width: 3, color: C.steel });
+      overlay.addChild(card);
 
       var disc = new PIXI.Graphics();
-      disc.circle(px + 78, y + 58, 40).fill(0xEDF2F5);
-      disc.circle(px + 78, y + 58, 40).stroke({ width: 4, color: C.ink, alpha: 0.7 });
+      disc.circle(x + 52, y + ch / 2, 32).fill(0xEDF2F5);
+      disc.circle(x + 52, y + ch / 2, 32).stroke({ width: 3, color: C.ink, alpha: 0.5 });
       overlay.addChild(disc);
-      var icon = upgradeIcon(u.id, 62);
-      icon.x = px + 47; icon.y = y + 27;
+      var icon = upgradeIcon(u.id, 52);
+      icon.x = x + 26; icon.y = y + ch / 2 - 26;
       overlay.addChild(icon);
 
-      var name = label(u.name, 24, C.ink, '800');
-      name.x = px + 134; name.y = y + 12;
+      var name = label(u.name, 20, C.ink, '800');
+      name.x = x + 96; name.y = y + 14;
       overlay.addChild(name);
 
-      var eff = labelWrap(lvl > 0 ? u.effect(lvl) : u.hint, 16,
-        lvl > 0 ? C.green : C.inkSoft, '600', 228);
-      eff.x = px + 134; eff.y = y + 44;
+      var eff = labelWrap(lvl > 0 ? u.effect(lvl) : u.hint, 14,
+        lvl > 0 ? C.green : C.inkSoft, '600', cw - 250);
+      eff.x = x + 96; eff.y = y + 40;
       overlay.addChild(eff);
 
       for (var k = 0; k < u.max; k++) {
         var pip = new PIXI.Graphics();
-        pip.circle(px + 142 + k * 22, y + 110, 8).fill(k < lvl ? C.gold : 0xD7DFE5);
-        pip.circle(px + 142 + k * 22, y + 110, 8).stroke({ width: 3, color: C.ink, alpha: 0.6 });
+        pip.circle(x + 102 + k * 20, y + ch - 22, 7).fill(k < lvl ? C.gold : 0xD7DFE5);
+        pip.circle(x + 102 + k * 20, y + ch - 22, 7).stroke({ width: 2, color: C.ink, alpha: 0.45 });
         overlay.addChild(pip);
       }
 
       if (price == null) {
-        var maxed = label('Максимум', 19, C.green, '800');
-        maxed.anchor.set(1, 0.5); maxed.x = px + pw - 46; maxed.y = y + 62;
+        var maxed = label('Максимум', 17, C.green, '800');
+        maxed.anchor.set(1, 0.5); maxed.x = x + cw - 24; maxed.y = y + ch / 2;
         overlay.addChild(maxed);
       } else {
         var can = meta.wallet >= price;
-        overlay.addChild(button(px + pw - 208, y + 26, 162, 72, money(price), can ? 'купить' : 'мало денег',
-          can, function (id) { return function () { buyUpgrade(id); }; }(u.id)));
+        overlay.addChild(button(x + cw - 150, y + 20, 130, ch - 40, money(price),
+          can ? 'купить' : 'мало денег', can,
+          function (id) { return function () { buyUpgrade(id); }; }(u.id)));
       }
     });
 
     var next = meta.shiftIdx;
-    overlay.addChild(button(px + 36, py + ph - 122, pw - 72, 86,
+    overlay.addChild(button(px + pw / 2 - 190, py + ph - 76, 380, 60,
       'Открыть смену ' + (next + 1), null, true, function () {
         hideOverlay();
         startShift(next);
@@ -2433,14 +2664,14 @@
         render();
       }));
 
-    var journal = label('журнал плейтеста', 16, C.inkSoft, '600');
-    journal.anchor.set(0, 0.5); journal.x = px + 30; journal.y = py + ph - 20;
+    var journal = label('журнал плейтеста', 14, C.inkSoft, '600');
+    journal.anchor.set(0, 0.5); journal.x = px + 24; journal.y = py + ph - 20;
     journal.eventMode = 'static'; journal.cursor = 'pointer';
     journal.on('pointertap', showLogPanel);
     overlay.addChild(journal);
 
-    var reset = label('сбросить прогресс', 16, C.inkSoft, '600');
-    reset.anchor.set(1, 0.5); reset.x = px + pw - 30; reset.y = py + ph - 20;
+    var reset = label('сбросить прогресс', 14, C.inkSoft, '600');
+    reset.anchor.set(1, 0.5); reset.x = px + pw - 24; reset.y = py + ph - 20;
     reset.eventMode = 'static'; reset.cursor = 'pointer';
     reset.on('pointertap', function () {
       meta = defaultMeta(); streak = 0; totalRevenue = 0;
@@ -2463,18 +2694,18 @@
     overlay.addChild(dim);
 
     var won = status === 'won';
-    var px = 60, py = 340, pw = W - 120, ph = 540;
+    var pw = 620, ph = 470, px = (W - pw) / 2, py = (H - ph) / 2;
 
     var panel = new PIXI.Graphics();
-    panel.roundRect(px + 6, py + 10, pw, ph, 30).fill({ color: 0x000000, alpha: 0.3 });
-    panel.roundRect(px, py, pw, ph, 30).fill(C.panel);
-    panel.roundRect(px, py, pw, 92, 30).fill(won ? C.green : C.red);
-    panel.roundRect(px, py + 62, pw, 30).fill(won ? C.green : C.red);
-    panel.roundRect(px, py, pw, ph, 30).stroke({ width: 5, color: C.ink, alpha: 0.9 });
+    panel.roundRect(px + 6, py + 8, pw, ph, 18).fill({ color: 0x000000, alpha: 0.3 });
+    panel.roundRect(px, py, pw, ph, 18).fill(C.panel);
+    panel.roundRect(px, py, pw, 74, 18).fill(won ? C.green : C.red);
+    panel.roundRect(px, py + 50, pw, 24).fill(won ? C.green : C.red);
+    panel.roundRect(px, py, pw, ph, 18).stroke({ width: 5, color: C.ink, alpha: 0.9 });
     overlay.addChild(panel);
 
-    var title = label(won ? 'Смена закрыта!' : 'Смена сорвана', 36, 0xFFFFFF, '800');
-    title.anchor.set(0.5); title.x = W / 2; title.y = py + 46;
+    var title = label(won ? 'Смена закрыта!' : 'Смена сорвана', 30, 0xFFFFFF, '800');
+    title.anchor.set(0.5); title.x = W / 2; title.y = py + 37;
     overlay.addChild(title);
 
     var rows = [
@@ -2486,29 +2717,29 @@
       ['Смен подряд', String(streak)]
     ];
     rows.forEach(function (r, i) {
-      var y = py + 126 + i * 50;
+      var y = py + 104 + i * 42;
       var line = new PIXI.Graphics();
-      line.roundRect(px + 30, y - 19, pw - 60, 42, 6).fill(i % 2 ? 0xF1F5F8 : 0xFFFFFF);
+      line.roundRect(px + 26, y - 16, pw - 52, 34, 6).fill(i % 2 ? 0xF1F5F8 : 0xFFFFFF);
       overlay.addChild(line);
-      var k = label(r[0], 20, C.inkSoft, '600');
-      k.anchor.set(0, 0.5); k.x = px + 46; k.y = y;
-      var v = label(r[1], 21, C.ink, '800');
-      v.anchor.set(1, 0.5); v.x = px + pw - 46; v.y = y;
+      var k = label(r[0], 17, C.inkSoft, '600');
+      k.anchor.set(0, 0.5); k.x = px + 40; k.y = y;
+      var v = label(r[1], 18, C.ink, '800');
+      v.anchor.set(1, 0.5); v.x = px + pw - 40; v.y = y;
       overlay.addChild(k, v);
     });
 
     if (reason) {
-      var why = label(reason, 17, C.inkSoft, '600');
-      why.anchor.set(0.5); why.x = W / 2; why.y = py + ph - 136;
+      var why = label(reason, 15, C.inkSoft, '600');
+      why.anchor.set(0.5); why.x = W / 2; why.y = py + ph - 100;
       overlay.addChild(why);
     }
 
     if (won) {
-      overlay.addChild(button(px + 36, py + ph - 112, pw - 72, 86,
+      overlay.addChild(button(px + 30, py + ph - 84, pw - 60, 66,
         'В магазин  ·  ' + money(state.revenue), 'выручка ушла в кассу', true, showShop));
     } else {
-      overlay.addChild(button(px + 36, py + ph - 112, (pw - 92) / 2, 86, 'Переиграть', null, true, retryShift));
-      overlay.addChild(button(px + 56 + (pw - 92) / 2, py + ph - 112, (pw - 92) / 2, 86, 'В магазин', null, true, showShop));
+      overlay.addChild(button(px + 30, py + ph - 84, (pw - 76) / 2, 66, 'Переиграть', null, true, retryShift));
+      overlay.addChild(button(px + 46 + (pw - 76) / 2, py + ph - 84, (pw - 76) / 2, 66, 'В магазин', null, true, showShop));
     }
   }
 
@@ -2531,7 +2762,7 @@
     var orderFor = function (id) {
       var found = null;
       state.customers.forEach(function (c) {
-        if (stillNeeded(c, id, counts) > 0 && (!found || c.patience < found.patience)) found = c;
+        if (stillNeeded(c, id) > 0 && (!found || c.patience < found.patience)) found = c;
       });
       return found;
     };
@@ -2635,7 +2866,7 @@
         get state() { return state; },
         get streak() { return streak; },
         get meta() { return meta; },
-        select: select, place: place, autoStep: autoStep,
+        select: select, place: place, tapItem: tapItem, autoStep: autoStep,
         booster: { undo: boosterUndo, fridge: boosterFridge, shuffle: boosterShuffle },
         nextShift: nextShift, retryShift: retryShift,
         shop: showShop, buy: buyUpgrade, zoneUnder: zoneUnder,
@@ -2650,10 +2881,10 @@
           var dim = new PIXI.Graphics();
           dim.rect(0, 0, W, H).fill(0xF2F6F9);
           overlay.addChild(dim);
-          ['happy', 'wait', 'sad'].forEach(function (mood, row) {
+          ['happy', 'wait', 'worry', 'angry'].forEach(function (mood, row) {
             PEOPLE.forEach(function (p, i) {
-              var n = personGraphic(52, i, mood);
-              n.x = 92 + (i % 4) * 180; n.y = 150 + row * 400 + Math.floor(i / 4) * 190;
+              var n = personGraphic(38, i, mood);
+              n.x = 84 + i * 146; n.y = 92 + row * 158;
               overlay.addChild(n);
             });
           });

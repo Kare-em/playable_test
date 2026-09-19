@@ -32,6 +32,7 @@ if (start.tray !== 12 || start.customers !== 3) fail('прилавок или о
 const triple = await page.evaluate(() => {
   const P = window.__proto; P.startShift(0, 4242);
   const st = P.state;
+  st.customers = [];                            // проверяем продажу без заказа
   const home = { milk:'dairy',cheese:'dairy',yogurt:'dairy',butter:'dairy',
                  bread:'grocery',grain:'grocery',cookie:'grocery',can:'grocery',
                  apple:'produce',carrot:'produce',tomato:'produce',grape:'produce' };
@@ -87,7 +88,7 @@ if (mixed.onTray !== 0) fail('после продажи набора товар 
 const spoil = await page.evaluate(() => {
   const P = window.__proto; P.startShift(0, 4242);
   const st = P.state;
-  st.customers.forEach(c => { c.patience = 9999; });
+  st.customers = [];                            // покупатели забрали бы товар с полки
   const first = st.belt[0];
   P.select('belt', 0); P.place(P.section(first));
   const slot = st.tray.findIndex(Boolean);
@@ -156,6 +157,7 @@ if (lose.status !== 'lost' || lose.filled !== lose.slots) fail('смена не 
 const zoning = await page.evaluate(() => {
   const P = window.__proto; P.startShift(0, 4242);
   const st = P.state;
+  st.customers = [];                            // иначе покупатель заберёт товар с полки
   const id = st.belt[0];
   const own = P.section(id);
   const alien = ['dairy','grocery','produce'].find(z => z !== own);
@@ -255,7 +257,7 @@ const demand = await page.evaluate(() => {
   const st = P.state;
   // один покупатель с одной позицией — так видно, что подтянулся именно нужный товар
   const want = [...new Set(st.belt)][0];
-  st.customers = [{ order: [{ id: want, n: 3 }], patience: 99, max: 99, face: 0 }];
+  st.customers = [{ order: [{ id: want, n: 3 }], patience: 99, max: 99, face: 0, got: {}, value: 0 }];
   const need = [want];
   const n = P.beltVisible();
   // прячем всё заказанное сразу за видимым окном — под рукой нужного не осталось
@@ -352,6 +354,48 @@ await page.waitForFunction(() => window.__proto, null, { timeout: 15000 });
 const kept = await page.evaluate(() => ({ counter: window.__proto.meta.up.counter }));
 console.log('та же сборка', JSON.stringify(kept));
 if (kept.counter !== 1) fail('прогресс той же сборки не пережил перезагрузку');
+
+// 17. тап по товару кладёт его в свой отдел без второго тапа
+const tap = await page.evaluate(() => {
+  const P = window.__proto; P.startShift(0, 4242);
+  const st = P.state;
+  st.customers = [];
+  const id = st.belt[0];
+  const zone = P.section(id);
+  const ok = P.tapItem('belt', 0);
+  const r = P.zoneRange(zone);
+  let inZone = false;
+  for (let i = r.from; i < r.to; i++) if (st.tray[i] === id) inZone = true;
+  return { id, zone, ok, inZone, onTray: st.tray.filter(Boolean).length };
+});
+console.log('тап-выкладка', JSON.stringify(tap));
+if (!tap.ok || !tap.inZone || tap.onTray !== 1) fail('тап по товару не кладёт его в свой отдел');
+
+// 18. мясной отдел и отдел химии открываются покупкой
+const zones = await page.evaluate(() => {
+  const P = window.__proto;
+  Object.keys(P.meta.up).forEach(k => { P.meta.up[k] = 0; });
+  P.startShift(0, 4242);
+  const base = P.traySize();
+  P.meta.wallet = 99999;
+  const boughtMeat = P.buy('meat');
+  P.startShift(0, 4242);
+  const withMeat = P.traySize();
+  const meatZone = P.zoneRange('meat');
+  const boughtChem = P.buy('chem');
+  P.startShift(0, 4242);
+  const withChem = P.traySize();
+  const chemZone = P.zoneRange('chem');
+  const meatOnBelt = st => st.belt.some(id => P.section(id) === 'meat');
+  return { base, withMeat, withChem, boughtMeat, boughtChem,
+           meatSlots: meatZone.to - meatZone.from, chemSlots: chemZone.to - chemZone.from,
+           chemOnBelt: P.state.belt.some(id => P.section(id) === 'chem') };
+});
+console.log('новые отделы', JSON.stringify(zones));
+if (!zones.boughtMeat || !zones.boughtChem) fail('отделы не покупаются');
+if (zones.withMeat !== zones.base + 4 || zones.withChem !== zones.base + 8)
+  fail('покупка отдела не расширяет прилавок');
+if (!zones.chemOnBelt) fail('товары нового отдела не попадают в завоз');
 
 await page.screenshot({ path: '/tmp/smoke-final.png' });
 await browser.close();

@@ -207,6 +207,52 @@ export const ICONS = {
     <ellipse cx="52" cy="60" rx="6" ry="4" fill="rgba(255,255,255,0.45)" transform="rotate(-30 52 60)"/>
   `),
 
+  // ---------------------------------------------------------- мясной отдел
+  sausage: frame(
+    lin('sausBody', [[0, '#D9705E'], [0.5, '#B8422F'], [1, '#8A2A1C']]) +
+    lin('sausCut', [[0, '#F0B2A2'], [1, '#D07B67']]), `
+    ${S('M28 78 q0 -22 22 -22 h34 q22 0 22 22 q0 22 -22 22 h-34 q-22 0 -22 -22 z', 'url(#sausBody)')}
+    ${dark('M74 56 h10 q22 0 22 22 q0 22 -22 22 h-10 q18 -6 18 -22 q0 -16 -18 -22 z', 0.14)}
+    <ellipse cx="36" cy="78" rx="9" ry="19" fill="url(#sausCut)"/>
+    <ellipse cx="36" cy="78" rx="9" ry="19" fill="none" stroke="${PALETTE.ink}" stroke-width="4"/>
+    <ellipse cx="36" cy="78" rx="4.5" ry="10" fill="#F6CFC3" opacity="0.8"/>
+    <circle cx="62" cy="70" r="3" fill="#F3D9CE" opacity="0.85"/>
+    <circle cx="78" cy="84" r="2.6" fill="#F3D9CE" opacity="0.8"/>
+    <circle cx="68" cy="88" r="2.2" fill="#F3D9CE" opacity="0.7"/>
+    <path d="M96 60 l10 -8 M96 96 l10 8" stroke="${PALETTE.ink}" stroke-width="4" stroke-linecap="round" fill="none"/>
+    ${glow('M40 62 q16 -4 30 0', 0.35, 5)}
+  `),
+
+  chicken: frame(
+    rad('chickBody', [[0, '#F7CE84'], [0.5, '#D9963C'], [1, '#93590F']], 0.36, 0.28, 0.82) +
+    lin('chickLeg', [[0, '#E9B76E'], [1, '#B3742A']]) +
+    lin('chickBone', [[0, '#FFFCF3'], [1, '#E3D8C2']]), `
+    ${S('M34 76 q2 -30 30 -30 q28 0 30 30 q2 20 -12 26 q-18 8 -36 0 q-14 -6 -12 -26 z', 'url(#chickBody)')}
+    ${dark('M80 52 q16 10 14 30 q-2 20 -16 26 q-8 4 -18 4 q26 -10 26 -34 q0 -16 -6 -26 z', 0.15)}
+    ${S('M44 98 q-10 12 -22 8 q-4 -12 10 -18 z', 'url(#chickLeg)')}
+    ${S('M84 98 q10 12 22 8 q4 -12 -10 -18 z', 'url(#chickLeg)')}
+    ${S('M22 106 a7 7 0 1 1 0.1 0 z', 'url(#chickBone)', 3)}
+    ${S('M106 106 a7 7 0 1 1 0.1 0 z', 'url(#chickBone)', 3)}
+    <path d="M50 62 q14 -8 28 0" stroke="#7A4A12" stroke-width="3.5" fill="none" stroke-linecap="round" opacity="0.55"/>
+    <path d="M46 78 q18 -6 36 0" stroke="#7A4A12" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.4"/>
+    <path d="M60 88 q8 4 16 0" stroke="#7A4A12" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.35"/>
+    ${glow('M46 60 q8 -10 18 -12', 0.5, 6)}
+  `),
+
+  steak: frame(
+    rad('steakMeat', [[0, '#DE6D57'], [0.5, '#AE362A'], [1, '#6F170E']], 0.34, 0.3, 0.84) +
+    lin('steakFat', [[0, '#FFF7E8'], [1, '#E7D5B8']]), `
+    ${S('M24 66 q6 -26 34 -26 q28 0 42 16 q16 18 2 36 q-16 20 -46 16 q-32 -4 -32 -42 z', 'url(#steakMeat)')}
+    ${dark('M86 58 q16 18 2 34 q-16 18 -44 18 q36 -8 44 -28 q6 -14 -2 -24 z', 0.16)}
+    <path d="M28 88 q26 16 58 2 q10 -4 14 -12 q2 14 -10 22 q-20 12 -44 6 q-16 -6 -18 -18 z"
+          fill="url(#steakFat)" stroke="${PALETTE.ink}" stroke-width="3.5" stroke-linejoin="round"/>
+    <path d="M40 54 l30 -6 M38 68 l40 -8 M46 80 l38 -8" stroke="#5E1409" stroke-width="5"
+          fill="none" stroke-linecap="round" opacity="0.45"/>
+    <path d="M52 58 q10 6 8 16 M76 62 q8 6 4 14" stroke="#F2CCB7" stroke-width="3"
+          fill="none" stroke-linecap="round" opacity="0.75"/>
+    ${glow('M42 50 q12 -6 22 -4', 0.35, 5)}
+  `),
+
   grape: frame(
     rad('grapeA', [[0, '#B48BE0'], [0.55, '#7D4FB5'], [1, '#4A2A78']], 0.33, 0.28, 0.85) +
     rad('grapeB', [[0, '#A379D6'], [0.55, '#6B3FA3'], [1, '#3F2268']], 0.33, 0.28, 0.85) +
@@ -226,7 +272,55 @@ export const ICONS = {
     <circle cx="46" cy="52" r="3" fill="rgba(255,255,255,0.55)"/>
     <circle cx="70" cy="50" r="2.6" fill="rgba(255,255,255,0.5)"/>
     <circle cx="58" cy="68" r="2.6" fill="rgba(255,255,255,0.45)"/>
+  `),
+
+  // ------------------------------------------------------- бытовая химия
+  soap: frame(
+    lin('soapBar', [[0, '#FFF3C4'], [0.5, '#F6D667'], [1, '#D9A72C']]) +
+    lin('soapWrap', [[0, '#8BD9F2'], [1, '#2E8FC4']]), `
+    ${S('M28 62 q0 -12 12 -12 h48 q12 0 12 12 v30 q0 12 -12 12 h-48 q-12 0 -12 -12 z', 'url(#soapBar)')}
+    ${dark('M76 50 h12 q12 0 12 12 v30 q0 12 -12 12 h-12 q10 -8 10 -27 z', 0.13)}
+    <path d="M28 70 h72 v16 h-72 z" fill="url(#soapWrap)"/>
+    <path d="M28 70 h72 v16 h-72 z" fill="none" stroke="${PALETTE.ink}" stroke-width="3.5"/>
+    <ellipse cx="64" cy="78" rx="13" ry="6" fill="#EAF8FF" opacity="0.9"/>
+    <circle cx="44" cy="44" r="7" fill="#DFF3FC" opacity="0.85"/>
+    <circle cx="44" cy="44" r="7" fill="none" stroke="${PALETTE.ink}" stroke-width="3"/>
+    <circle cx="58" cy="34" r="5" fill="#DFF3FC" opacity="0.8"/>
+    <circle cx="58" cy="34" r="5" fill="none" stroke="${PALETTE.ink}" stroke-width="3"/>
+    ${glow('M36 60 q10 -4 20 -2', 0.4, 5)}
+  `),
+
+  powder: frame(
+    lin('powBox', [[0, '#8FD0F5'], [0.55, '#4F9FD8'], [1, '#2C6FA8']]) +
+    lin('powTop', [[0, '#BFE6FA'], [1, '#6FB3E0']]) +
+    lin('powWin', [[0, '#FFFFFF'], [1, '#E4F2FB']]), `
+    ${S('M34 42 h60 v58 q0 6 -6 6 h-48 q-6 0 -6 -6 z', 'url(#powBox)')}
+    ${dark('M78 44 h16 v56 q0 6 -6 6 h-12 z', 0.14)}
+    ${S('M34 42 l10 -12 h48 l10 12 z', 'url(#powTop)')}
+    <rect x="44" y="58" width="40" height="30" rx="5" fill="url(#powWin)"/>
+    <path d="M44 58 h40 v30 h-40 z" fill="none" stroke="${PALETTE.ink}" stroke-width="3.5"/>
+    <circle cx="56" cy="70" r="4" fill="#7FC4EC"/>
+    <circle cx="70" cy="76" r="3.4" fill="#7FC4EC"/>
+    <circle cx="64" cy="66" r="2.6" fill="#7FC4EC"/>
+    ${glow('M40 56 q-2 20 0 40', 0.35, 4)}
+  `),
+
+  spray: frame(
+    lin('sprayBody', [[0, '#B6F0D4'], [0.5, '#4FBE92'], [1, '#1E8460']]) +
+    lin('sprayCap', [[0, '#F2F6F8'], [1, '#B9C6CE']]) +
+    lin('sprayLabel', [[0, '#FFFFFF'], [1, '#DCEAE4']]), `
+    ${S('M44 56 h40 v44 q0 6 -6 6 h-28 q-6 0 -6 -6 z', 'url(#sprayBody)')}
+    ${dark('M72 56 h12 v44 q0 6 -6 6 h-10 q6 -8 6 -24 z', 0.14)}
+    ${S('M52 40 h24 v16 h-24 z', 'url(#sprayCap)')}
+    ${S('M52 44 h-18 q-6 0 -6 6 v6 q0 6 6 6 h10', 'none', 4)}
+    <path d="M28 40 h14 v10 h-14 z" fill="url(#sprayCap)" stroke="${PALETTE.ink}" stroke-width="3.5"/>
+    <rect x="50" y="70" width="28" height="22" rx="4" fill="url(#sprayLabel)"/>
+    <path d="M50 70 h28 v22 h-28 z" fill="none" stroke="${PALETTE.ink}" stroke-width="3.5"/>
+    <path d="M56 78 h16 M56 85 h10" stroke="#5E6B73" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="24" cy="32" r="3" fill="#8EE0BE"/>
+    <circle cx="18" cy="42" r="2.4" fill="#8EE0BE"/>
+    ${glow('M50 62 q-2 18 0 34', 0.4, 5)}
   `)
 };
 
-export const ORDER = ['milk','cheese','yogurt','butter','bread','grain','cookie','can','apple','carrot','tomato','grape'];
+export const ORDER = ['milk','cheese','yogurt','butter','bread','grain','cookie','can','apple','carrot','tomato','grape','sausage','chicken','steak','soap','powder','spray'];
