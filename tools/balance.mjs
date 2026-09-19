@@ -21,7 +21,7 @@ const run = async (pull) => page.evaluate(([pull, seeds]) => {
   P.log.clear();
   const rows = [];
   for (let shift = 0; shift < 3; shift++) {
-    let wins = 0, freeSum = 0, tight = 0, moves = 0, lost = 0;
+    let wins = 0, freeSum = 0, tight = 0, moves = 0, lost = 0, spoiled = 0, writeOff = 0, revenue = 0;
     const reasons = {};
     for (let s = 0; s < seeds; s++) {
       Object.keys(P.meta.up).forEach(k => { P.meta.up[k] = 0; });   // баланс без апгрейдов
@@ -35,6 +35,7 @@ const run = async (pull) => page.evaluate(([pull, seeds]) => {
         if (free <= 1) tight++;                                      // ходы «в тесноте»
       }
       lost += st.lost;
+      spoiled += st.spoiled; writeOff += st.writeOff; revenue += st.revenue;
       if (st.status === 'won') wins++;
       else {
         // причину знает сама игра — берём её из журнала, а не угадываем по состоянию
@@ -46,7 +47,10 @@ const run = async (pull) => page.evaluate(([pull, seeds]) => {
     rows.push({ shift: shift + 1, slots: P.traySize(), wins: Math.round(wins / seeds * 100),
                 free: +(freeSum / Math.max(1, moves)).toFixed(1),
                 tight: Math.round(tight / Math.max(1, moves) * 100),
-                lost: +(lost / seeds).toFixed(1), reasons });
+                lost: +(lost / seeds).toFixed(1),
+                spoiled: +(spoiled / seeds).toFixed(1),
+                writeOff: Math.round(writeOff / seeds),
+                revenue: Math.round(revenue / seeds), reasons });
   }
   return rows;
 }, [pull, seeds]);
@@ -54,10 +58,10 @@ const run = async (pull) => page.evaluate(([pull, seeds]) => {
 for (const [name, pull] of [['с подтягиванием (0.7)', 0.7], ['без подтягивания (0)', 0]]) {
   const rows = await run(pull);
   console.log('\n### ' + name);
-  console.log('| Смена | Побед бота | Свободно слотов | Ходов «в тесноте» | Ушло покупателей |');
-  console.log('|---|---|---|---|---|');
+  console.log('| Смена | Побед бота | Свободно слотов | Ушло покупателей | Списано | Выручка |');
+  console.log('|---|---|---|---|---|---|');
   for (const r of rows) {
-    console.log(`| ${r.shift} | ${r.wins}% | ${r.free} из ${r.slots} | ${r.tight}% | ${r.lost} |`);
+    console.log(`| ${r.shift} | ${r.wins}% | ${r.free} из ${r.slots} | ${r.lost} | ${r.spoiled} шт · ${r.writeOff} ₽ | ${r.revenue} ₽ |`);
   }
   console.log('причины поражений:', JSON.stringify(rows.map(r => r.reasons)));
 }

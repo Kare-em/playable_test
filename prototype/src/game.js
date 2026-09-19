@@ -56,6 +56,8 @@
   var BELT_VISIBLE_MAX = 6;
   var FRIDGE_BASE = 3;
   var COMBO_MAX_MULT = 3;
+  var COST_RATE = 0.4;         // себестоимость товара — доля от цены
+  var LIFE = { dairy: 7, grocery: 12, produce: 6 };   // срок годности в ходах
   var DEMAND_PULL = 0.7;       // как часто нужный товар подтягивается из глубины завоза
   var DEMAND_DEPTH = 12;       // насколько глубоко за ним лезем
   var ORDER_MULT = 1.5;        // бонус за заказ покупателя
@@ -210,6 +212,7 @@
   function logSummary() {
     var s = { shifts: 0, won: 0, lost: 0, streakMax: 0, streakNow: streak,
               moves: 0, home: 0, denyFull: 0, denyZone: 0, lostCustomers: 0,
+              spoiled: 0, writeOff: 0,
               undo: 0, fridge: 0, shuffle: 0, retries: 0, upgrades: 0,
               minutes: 0, reasons: {} };
     var first = { m: 0, h: 0 }, late = { m: 0, h: 0 };
@@ -227,6 +230,8 @@
         s.home += e.home || 0;
         s.denyFull += e.denyFull || 0;
         s.denyZone += e.denyZone || 0;
+        s.spoiled += e.spoiled || 0;
+        s.writeOff += e.writeOff || 0;
         s.lostCustomers += e.lost || 0;
         s.minutes += (e.sec || 0) / 60;
         var bucket = e.shift === 1 ? first : (e.shift >= 3 ? late : null);
@@ -298,6 +303,7 @@
     [ ['Смен сыграно', s.shifts + ' (побед ' + s.won + ', сорвано ' + s.lost + ')'],
       ['Смен подряд', 'рекорд ' + s.streakMax + ', сейчас ' + s.streakNow],
       ['Тапов по чужой зоне', String(s.denyZone)],
+      ['Просрочка', s.spoiled + ' шт на ' + s.writeOff + ' ₽'],
       ['Бустеры', 'вернуть ' + s.undo + ', отложить ' + s.fridge + ', перемешать ' + s.shuffle],
       ['Тапов по забитой зоне', String(s.denyFull)],
       ['Ушло покупателей', String(s.lostCustomers)],
@@ -482,6 +488,9 @@
       rnd: rnd,
       belt: buildBelt(cfg, rnd, pool),
       tray: new Array(traySize()).fill(null),
+      fresh: new Array(traySize()).fill(0),   // сколько ходов товар ещё годен
+      spoiled: 0,                             // сколько товара списали
+      writeOff: 0,                            // на какую сумму себестоимости
       fridge: [],
       customers: [],
       selected: null,
@@ -501,7 +510,7 @@
     hiddenSlots = {};
     for (var i = 0; i < QUEUE_SIZE; i++) spawnCustomer();
     pullDemanded();
-    shiftStat = { started: Date.now(), moves: 0, home: 0, denyFull: 0, denyZone: 0 };
+    shiftStat = { started: Date.now(), moves: 0, home: 0, denyFull: 0, denyZone: 0, spoiled: 0, writeOff: 0 };
     logEvent('shift_start', { shift: shiftIdx + 1, goal: cfg.goal, tray: state.tray.length,
       belt: state.belt.length, patience: cfg.patience + meta.up.sign * 5,
       up: upgradeSnapshot(), streak: streak });
@@ -509,6 +518,9 @@
   }
 
   function comboMult() { return Math.min(1 + 0.5 * state.combo, COMBO_MAX_MULT); }
+
+  function costOf(product) { return Math.round(product.price * COST_RATE); }
+  function lifeOf(product) { return LIFE[product.section] || 8; }
 
   function priceOf(product) {
     return product.price * (state.saleProduct === product.id ? 2 : 1);
@@ -529,10 +541,11 @@
       return false;
     };
 
-    var need = {}, counts = {};
-    state.tray.forEach(function (id) { if (id) counts[id] = (counts[id] || 0) + 1; });
+    var counts = trayCounts(), need = {};
     Object.keys(counts).forEach(function (id) { if (counts[id] >= 2) need[id] = true; });
-    state.customers.forEach(function (c) { need[c.productId] = true; });
+    state.customers.forEach(function (c) {
+      c.order.forEach(function (l) { if (stillNeeded(c, l.id, counts) > 0) need[l.id] = true; });
+    });
 
     var n = Math.min(beltVisible(), state.belt.length);
     if (!n) return false;
@@ -553,26 +566,67 @@
 
   /* --------------------------------------------------------- покупатели */
 
-  // Заказывают только то, что ещё реально собрать, — тупиков по вине очереди нет.
+  // Набор заказа: три позиции в любой комбинации — тройка одного товара, 2+1
+  // или три разных. Собирается только из того, что реально осталось на завозе
+  // и полке, иначе очередь сама создавала бы тупики.
+  function pickOrder(counts, taken, shape) {
+    var left = {}, k;
+    for (k in counts) if (Object.prototype.hasOwnProperty.call(counts, k)) left[k] = counts[k];
+    var out = [], used = {};
+    for (var i = 0; i < shape.length; i++) {
+      var need = shape[i];
+      var cand = Object.keys(left).filter(function (id) { return !used[id] && left[id] >= need; });
+      var free = cand.filter(function (id) { return !taken[id]; });   // чужой заказ дублируем в последнюю очередь
+      if (free.length) cand = free;
+      if (!cand.length) return null;
+      var id = cand[Math.floor(state.rnd() * cand.length)];
+      used[id] = true;
+      left[id] -= need;
+      out.push({ id: id, n: need });
+    }
+    return out;
+  }
+
   function spawnCustomer() {
     var counts = {};
     state.belt.forEach(function (id) { counts[id] = (counts[id] || 0) + 1; });
     state.tray.forEach(function (id) { if (id) counts[id] = (counts[id] || 0) + 1; });
-    var taken = state.customers.map(function (c) { return c.productId; });
-    var pool = Object.keys(counts).filter(function (id) {
-      return counts[id] >= 3 && taken.indexOf(id) === -1;
+    var taken = {};
+    state.customers.forEach(function (c) {
+      c.order.forEach(function (l) { taken[l.id] = true; });
     });
-    if (!pool.length) return null;
 
-    var id = pool[Math.floor(state.rnd() * pool.length)];
+    var roll = state.rnd();
+    var shapes = roll < 0.4 ? [[3], [2, 1], [1, 1, 1]]
+               : roll < 0.75 ? [[2, 1], [1, 1, 1], [3]]
+                             : [[1, 1, 1], [2, 1], [3]];
+    var order = null;
+    for (var s = 0; s < shapes.length && !order; s++) order = pickOrder(counts, taken, shapes[s]);
+    if (!order) return null;
+
     var patience = state.cfg.patience + meta.up.sign * 5;
     // типаж покупателя: стараемся не ставить рядом два одинаковых лица
     var used = state.customers.map(function (q) { return q.face; });
     var face = Math.floor(state.rnd() * PEOPLE.length);
     for (var t = 0; t < PEOPLE.length && used.indexOf(face) !== -1; t++) face = (face + 1) % PEOPLE.length;
-    var c = { productId: id, patience: patience, max: patience, face: face };
+    var c = { order: order, patience: patience, max: patience, face: face };
     state.customers.push(c);
     return c;
+  }
+
+  function orderTotal(c) {
+    var n = 0;
+    c.order.forEach(function (l) { n += l.n; });
+    return n;
+  }
+
+  // Сколько ещё этого товара нужно покупателю, чтобы его набор закрылся.
+  function stillNeeded(c, productId, counts) {
+    var need = 0;
+    c.order.forEach(function (l) {
+      if (l.id === productId) need = Math.max(0, l.n - (counts[l.id] || 0));
+    });
+    return need;
   }
 
   function tickPatience() {
@@ -592,17 +646,65 @@
     if (left.length) { toast('Покупатель ушёл не дождавшись'); sfx('wrong'); }
   }
 
-  function serveCustomer(productId) {
-    for (var i = 0; i < state.customers.length; i++) {
-      if (state.customers[i].productId === productId) {
-        var c = state.customers.splice(i, 1)[0];
-        state.lastFace = c.face;
-        state.served += 1;
-        spawnCustomer();
-        return c;
-      }
+  // Срок годности: каждый ход товар на полке стареет. Просрочку списывают —
+  // себестоимость уходит из выручки смены, а серия рвётся: держать товар
+  // «на всякий случай» теперь стоит денег.
+  function tickFresh() {
+    var gone = [];
+    for (var i = 0; i < state.tray.length; i++) {
+      if (!state.tray[i]) continue;
+      state.fresh[i] -= 1;
+      if (state.fresh[i] <= 0) gone.push(i);
     }
-    return null;
+    if (!gone.length) return;
+
+    var loss = 0;
+    gone.forEach(function (i) {
+      var p = productById(state.tray[i]);
+      loss += costOf(p);
+      spoilFx(i, p);
+      state.tray[i] = null;
+      state.fresh[i] = 0;
+    });
+    state.revenue = Math.max(0, state.revenue - loss);
+    state.spoiled += gone.length;
+    state.writeOff += loss;
+    state.combo = 0;
+    if (shiftStat) { shiftStat.spoiled += gone.length; shiftStat.writeOff += loss; }
+    compactTray();
+    toast('Просрочка: списано на ' + money(loss));
+    sfx('wrong');
+  }
+
+  function trayCounts() {
+    var m = {};
+    state.tray.forEach(function (id) { if (id) m[id] = (m[id] || 0) + 1; });
+    return m;
+  }
+
+  function orderReady(c, counts) {
+    for (var i = 0; i < c.order.length; i++) {
+      if ((counts[c.order[i].id] || 0) < c.order[i].n) return false;
+    }
+    return true;
+  }
+
+  function takeSlots(productId, n) {
+    var out = [];
+    for (var i = 0; i < state.tray.length && out.length < n; i++) {
+      if (state.tray[i] === productId) out.push(i);
+    }
+    return out;
+  }
+
+  function serveCustomer(c) {
+    var i = state.customers.indexOf(c);
+    if (i === -1) return null;
+    state.customers.splice(i, 1);
+    state.lastFace = c.face;
+    state.served += 1;
+    spawnCustomer();
+    return c;
   }
 
   /* ------------------------------------------------------------- механика */
@@ -653,6 +755,7 @@
     else state.fridge.splice(sel.index, 1);
 
     state.tray[slot] = productId;
+    state.fresh[slot] = lifeOf(product);
     state.selected = null;
     state.lastPlacement = { slot: slot, productId: productId, from: sel.from };
     if (shiftStat) {
@@ -662,6 +765,7 @@
 
     var sale = resolveSale();
     tickPatience();
+    tickFresh();
     pullDemanded();
 
     var key = 'slot:' + slot;
@@ -708,31 +812,39 @@
 
   // Любые три одинаковых на прилавке продаются. Бонусы: своя зона и заказ.
   function resolveSale() {
-    var counts = {};
-    state.tray.forEach(function (id) { if (id) counts[id] = (counts[id] || 0) + 1; });
-    var hit = Object.keys(counts).filter(function (k) { return counts[k] >= 3; })[0];
-    if (!hit) return false;
+    var counts = trayCounts();
 
-    var product = productById(hit);
+    // сперва — собранный набор покупателя, ради него товар и держат на полке
+    var cust = null;
+    for (var q = 0; q < state.customers.length && !cust; q++) {
+      if (orderReady(state.customers[q], counts)) cust = state.customers[q];
+    }
 
-    // сначала берём те три, что лежат в своей зоне, — игрок не теряет бонус случайно
-    var home = [], other = [];
-    state.tray.forEach(function (id, i) {
-      if (id !== hit) return;
-      (zoneOfSlot(i) === product.section ? home : other).push(i);
-    });
-    var chosen = home.concat(other).slice(0, 3);
-    var perfect = chosen.every(function (i) { return zoneOfSlot(i) === product.section; });
+    var chosen = [], product = null;
+    if (cust) {
+      cust.order.forEach(function (l) { chosen = chosen.concat(takeSlots(l.id, l.n)); });
+      product = productById(cust.order[0].id);
+    } else {
+      // без заказа продаётся привычная тройка одинаковых — «с полки»
+      var hit = Object.keys(counts).filter(function (k) { return counts[k] >= 3; })[0];
+      if (!hit) return false;
+      product = productById(hit);
+      chosen = takeSlots(hit, 3);
+    }
 
-    var order = serveCustomer(hit);
+    var perfect = chosen.every(function (i) { return zoneOfSlot(i) === productById(state.tray[i]).section; });
+
+    var sum = 0;
+    chosen.forEach(function (i) { sum += priceOf(productById(state.tray[i])); });
+    var order = cust ? serveCustomer(cust) : null;
     var mult = perfect ? ZONE_MULT * comboMult() : 1;
-    var gain = priceOf(product) * 3 * mult * (order ? ORDER_MULT : 1);
+    var gain = sum * mult * (order ? ORDER_MULT : 1);
 
     state.revenue += gain;
     state.combo = perfect ? state.combo + 1 : 0;
     if (state.combo > bestCombo) bestCombo = state.combo;
 
-    chosen.forEach(function (i) { state.tray[i] = null; });
+    chosen.forEach(function (i) { state.tray[i] = null; state.fresh[i] = 0; });
     compactTray();
     state.lastPlacement = null;
 
@@ -746,9 +858,12 @@
   function compactTray() {
     ZONES.forEach(function (z) {
       var r = zoneRange(z.id);
-      var items = [];
-      for (var i = r.from; i < r.to; i++) if (state.tray[i]) items.push(state.tray[i]);
-      for (var j = r.from; j < r.to; j++) state.tray[j] = items[j - r.from] || null;
+      var items = [], life = [];
+      for (var i = r.from; i < r.to; i++) if (state.tray[i]) { items.push(state.tray[i]); life.push(state.fresh[i]); }
+      for (var j = r.from; j < r.to; j++) {
+        state.tray[j] = items[j - r.from] || null;
+        state.fresh[j] = life[j - r.from] || 0;
+      }
     });
   }
 
@@ -759,6 +874,7 @@
     var lp = state.lastPlacement;
     if (!lp) { toast('Нечего возвращать'); sfx('deny'); return false; }
     state.tray[lp.slot] = null;
+    state.fresh[lp.slot] = 0;
     compactTray();
     if (lp.from === 'fridge' && state.fridge.length < fridgeSize()) state.fridge.push(lp.productId);
     else state.belt.unshift(lp.productId);
@@ -819,11 +935,12 @@
     }
     meta.streak = streak;
     saveMeta();
-    var stat = shiftStat || { started: Date.now(), moves: 0, home: 0, denyFull: 0, denyZone: 0 };
+    var stat = shiftStat || { started: Date.now(), moves: 0, home: 0, denyFull: 0, denyZone: 0, spoiled: 0, writeOff: 0 };
     logEvent('shift_end', { shift: state.shiftIdx + 1, status: status, reason: reason || null,
       revenue: Math.round(state.revenue), served: state.served, goal: state.goal,
       lost: state.lost, combo: bestCombo, streak: streak, moves: stat.moves, home: stat.home,
       denyFull: stat.denyFull, denyZone: stat.denyZone,
+      spoiled: stat.spoiled, writeOff: stat.writeOff,
       sec: Math.round((Date.now() - stat.started) / 1000) });
     shiftStat = null;
     if (window.console) console.log('[playtest] shift', state.shiftIdx + 1, status,
@@ -1539,6 +1656,7 @@
       c.x = slotX(i); c.y = TRAY_Y;
       if (fx && fx.pop === i) squashIn(c, w, TRAY_H);
       layers.trayItems.addChild(c);
+      layers.trayItems.addChild(freshBadge(i, productById(pid)));
     });
 
     var sel = selectedProduct();
@@ -1593,6 +1711,31 @@
   /* ------------------------------------------------------- перетаскивание */
 
   var drag = null;
+
+  // Отсчёт срока годности: число ходов до списания прямо на товаре.
+  function freshBadge(i, product) {
+    var left = state.fresh[i], full = lifeOf(product);
+    var w = traySlotW(), x = slotX(i) + w - 13, y = TRAY_Y + 12;
+    var col = left <= 2 ? C.red : (left <= Math.ceil(full * 0.4) ? C.gold : C.green);
+
+    var box = new PIXI.Container();
+    var g = new PIXI.Graphics();
+    g.circle(x, y, 12).fill(col);
+    g.circle(x, y, 12).stroke({ width: 2.5, color: C.ink, alpha: 0.85 });
+    box.addChild(g);
+    var t = label(String(Math.max(0, left)), 13, 0xFFFFFF, '800');
+    t.anchor.set(0.5); t.x = x; t.y = y;
+    box.addChild(t);
+    if (left <= 2) box.alpha = 0.7 + 0.3 * Math.abs(Math.sin(Date.now() / 220));
+    return box;
+  }
+
+  // Списание просрочки: минус себестоимость прямо над ячейкой.
+  function spoilFx(i, product) {
+    var x = slotX(i) + traySlotW() / 2;
+    floatText(x, TRAY_Y + 20, '−' + money(costOf(product)), C.red);
+    flashArea(x, TRAY_Y + TRAY_H / 2, false);
+  }
 
   function dragging(index) {
     return !!(drag && drag.active && drag.from === 'belt' && drag.index === index);
@@ -1688,22 +1831,45 @@
         continue;
       }
 
-      var p = productById(c.productId);
       var ratio = c.patience / c.max;
+      var counts = trayCounts();
 
       var face = personGraphic(26, c.face, ratio > 0.5 ? 'happy' : (ratio > 0.25 ? 'wait' : 'sad'));
-      face.x = 50; face.y = 48;
+      face.x = 44; face.y = 48;
       box.addChild(face);
 
-      var disc = new PIXI.Graphics();
-      disc.circle(146, 48, 34).fill(mix(p.accent, 0xFFFFFF, 0.45));
-      disc.circle(146, 48, 34).stroke({ width: 4, color: mix(p.accent, C.ink, 0.45) });
-      box.addChild(disc);
-      var icon = productIcon(p, 48);
-      icon.x = 146; icon.y = 48;
-      box.addChild(icon);
+      // набор покупателя: сколько позиций, столько кружков, собранное гаснет
+      var lines = c.order, cw = lines.length > 1 ? 44 : 64;
+      var x0 = QUEUE_W - 16 - lines.length * cw + cw / 2;
+      lines.forEach(function (l, li) {
+        var lp = productById(l.id);
+        var r = lines.length > 1 ? 20 : 32;
+        var cx = x0 + li * cw, cy = 44;
+        var done = (counts[l.id] || 0) >= l.n;
 
-      var want = label(p.name + ' ×3', 18, C.ink, '800');
+        var disc = new PIXI.Graphics();
+        disc.circle(cx, cy, r).fill(done ? mix(C.green, 0xFFFFFF, 0.72) : mix(lp.accent, 0xFFFFFF, 0.45));
+        disc.circle(cx, cy, r).stroke({ width: 3, color: done ? C.green : mix(lp.accent, C.ink, 0.45) });
+        box.addChild(disc);
+
+        var ic = productIcon(lp, r * 1.5);
+        ic.x = cx; ic.y = cy;
+        box.addChild(ic);
+
+        if (l.n > 1) {
+          var badge = new PIXI.Graphics();
+          badge.circle(cx + r * 0.8, cy + r * 0.8, 13).fill(C.ink);
+          box.addChild(badge);
+          var bt = label('×' + l.n, 14, 0xFFFFFF, '800');
+          bt.anchor.set(0.5); bt.x = cx + r * 0.8; bt.y = cy + r * 0.8;
+          box.addChild(bt);
+        }
+      });
+
+      var title = lines.length === 1
+        ? productById(lines[0].id).name + ' ×' + lines[0].n
+        : 'Набор · ' + orderTotal(c) + ' товара';
+      var want = label(title, 17, C.ink, '800');
       want.anchor.set(0.5); want.x = QUEUE_W / 2; want.y = 108;
       box.addChild(want);
 
@@ -2152,6 +2318,7 @@
       ['Выручка', money(state.revenue)],
       ['Обслужено', state.served + ' / ' + state.goal],
       ['Ушли не дождавшись', String(state.lost)],
+      ['Списано просрочки', state.spoiled + ' шт · ' + money(state.writeOff)],
       ['Лучшее комбо', '×' + Math.min(1 + 0.5 * bestCombo, COMBO_MAX_MULT).toFixed(1)],
       ['Смен подряд', String(streak)]
     ];
@@ -2197,10 +2364,11 @@
   function autoStep() {
     if (!state || state.status !== 'playing') return false;
     var visible = state.belt.slice(0, beltVisible());
+    var counts = trayCounts();
     var orderFor = function (id) {
       var found = null;
       state.customers.forEach(function (c) {
-        if (c.productId === id && (!found || c.patience < found.patience)) found = c;
+        if (stillNeeded(c, id, counts) > 0 && (!found || c.patience < found.patience)) found = c;
       });
       return found;
     };

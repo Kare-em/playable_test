@@ -44,24 +44,69 @@ const triple = await page.evaluate(() => {
 console.log('тройка в своей зоне', JSON.stringify(triple));
 if (triple.revenue <= 0 || triple.combo < 1) fail('продажа в своей зоне не сработала');
 
-// 3. заказ покупателя закрывается продажей и двигает план
+// 3. заказ покупателя закрывается набором и двигает план
 const order = await page.evaluate(() => {
   const P = window.__proto; P.startShift(0, 777);
   const st = P.state;
-  const want = st.customers[0].productId;
-  const zone = { milk:'dairy',cheese:'dairy',yogurt:'dairy',butter:'dairy',
-                 bread:'grocery',grain:'grocery',cookie:'grocery',can:'grocery',
-                 apple:'produce',carrot:'produce',tomato:'produce',grape:'produce' }[want];
+  const c = st.customers[0];
   const before = st.served;
-  // подкладываем нужный товар в начало завоза — тест про заказ, а не про удачу
-  st.belt.unshift(want, want, want);
-  for (let n = 0; n < 3; n++) { P.select('belt', 0); P.place(zone); }
-  return { want, servedBefore: before, servedAfter: st.served, revenue: Math.round(st.revenue) };
+  // подкладываем весь набор в начало завоза — тест про заказ, а не про удачу
+  const items = [];
+  c.order.forEach(l => { for (let k = 0; k < l.n; k++) items.push(l.id); });
+  st.belt.unshift(...items);
+  for (let k = 0; k < items.length; k++) {
+    const id = st.belt[0];
+    P.select('belt', 0);
+    P.place(P.section(id));
+  }
+  return { shape: c.order.map(l => l.id + '×' + l.n), servedBefore: before,
+           servedAfter: st.served, revenue: Math.round(st.revenue) };
 });
 console.log('заказ', JSON.stringify(order));
-if (order.servedAfter <= order.servedBefore) fail('заказ покупателя не засчитался');
+if (order.servedAfter <= order.servedBefore) fail('набор покупателя не засчитался');
+if (order.revenue <= 0) fail('заказ не принёс выручки');
 
-// 4. терпение: покупатель уходит, серия рвётся
+// 4. смешанный набор (2+1) продаётся, хотя трёх одинаковых на полке нет
+const mixed = await page.evaluate(() => {
+  const P = window.__proto; P.startShift(1, 20260919);
+  const st = P.state;
+  const uniq = [...new Set(st.belt)];
+  const a = uniq[0], b = uniq.find(id => id !== a);
+  st.customers[0].order = [{ id: a, n: 2 }, { id: b, n: 1 }];
+  st.customers.slice(1).forEach(c => { c.order = [{ id: a, n: 3 }]; c.patience = 9999; });
+  const before = st.served;
+  [a, a, b].forEach(id => { st.belt.unshift(id); P.select('belt', 0); P.place(P.section(id)); });
+  return { a, b, servedBefore: before, servedAfter: st.served,
+           onTray: st.tray.filter(Boolean).length, revenue: Math.round(st.revenue) };
+});
+console.log('смешанный набор', JSON.stringify(mixed));
+if (mixed.servedAfter <= mixed.servedBefore) fail('набор 2+1 не продался');
+if (mixed.onTray !== 0) fail('после продажи набора товар остался на полке');
+
+// 5. срок годности: товар списывается, себестоимость уходит из выручки
+const spoil = await page.evaluate(() => {
+  const P = window.__proto; P.startShift(0, 4242);
+  const st = P.state;
+  st.customers.forEach(c => { c.patience = 9999; });
+  const first = st.belt[0];
+  P.select('belt', 0); P.place(P.section(first));
+  const slot = st.tray.findIndex(Boolean);
+  const lifeStart = st.fresh[slot];
+  st.revenue = 500;
+  st.fresh[slot] = 1;                    // на следующем ходу этот товар просрочен
+  const second = st.belt.find(id => id !== first && P.section(id) !== P.section(first));
+  const idx = st.belt.indexOf(second);
+  st.belt.unshift(st.belt.splice(idx, 1)[0]);
+  P.select('belt', 0); P.place(P.section(second));
+  return { lifeStart, spoiled: st.spoiled, writeOff: st.writeOff,
+           revenue: Math.round(st.revenue), combo: st.combo };
+});
+console.log('срок годности', JSON.stringify(spoil));
+if (!(spoil.lifeStart > 0)) fail('у выложенного товара нет срока годности');
+if (spoil.spoiled !== 1 || spoil.writeOff <= 0) fail('просрочка не списалась');
+if (spoil.revenue !== 500 - spoil.writeOff) fail('себестоимость не вычлась из выручки');
+
+// 6. терпение: покупатель уходит, серия рвётся
 const patience = await page.evaluate(() => {
   const P = window.__proto; P.startShift(0, 31337);
   const st = P.state;
@@ -73,11 +118,11 @@ const patience = await page.evaluate(() => {
 console.log('терпение', JSON.stringify(patience));
 if (patience.lost < 1) fail('покупатель не ушёл по истечении терпения');
 
-// 5. проигрыш по забитому прилавку: последний свободный слот закрывает смену
+// 7. проигрыш по забитому прилавку: последний свободный слот закрывает смену
 const lose = await page.evaluate(() => {
   const P = window.__proto; P.startShift(2, 12345);
   const st = P.state;
-  st.customers.forEach(c => { c.patience = 9999; });   // проверяем именно забитый прилавок
+  st.customers = [];                                  // проверяем именно забитый прилавок, без заказов
   const uniq = [...new Set(st.belt)];
   const zones = ['dairy','grocery','produce'];
   const zone = zones.find(z => uniq.some(id => P.section(id) === z));
@@ -89,7 +134,7 @@ const lose = await page.evaluate(() => {
   const freeSlot = r.to - 1;
   for (let i = 0, k = 0; i < st.tray.length; i++) {
     if (i === freeSlot) continue;
-    st.tray[i] = rest[k % rest.length]; k++;
+    st.tray[i] = rest[k % rest.length]; st.fresh[i] = 99; k++;   // тест не про просрочку
   }
   const triples = uniq.some(id => st.tray.filter(t => t === id).length >= 3);
   const before = { status: st.status, free: st.tray.filter(c => c === null).length, triples };
@@ -104,7 +149,7 @@ if (lose.skipped) fail('тест собран неверно: не нашлос�
 if (lose.before.free !== 1 || lose.before.triples) fail('тест собран неверно: прилавок собран с тройкой или не полон');
 if (lose.status !== 'lost' || lose.filled !== lose.slots) fail('смена не проигрывается при забитом прилавке');
 
-// 6. товар не ложится в чужую зону
+// 8. товар не ложится в чужую зону
 const zoning = await page.evaluate(() => {
   const P = window.__proto; P.startShift(0, 4242);
   const st = P.state;
@@ -124,11 +169,11 @@ console.log('зоны', JSON.stringify(zoning));
 if (zoning.refused !== false || zoning.afterAlien !== 0) fail('товар лёг в чужую зону');
 if (zoning.accepted !== true || zoning.afterOwn !== 1 || !zoning.inOwnZone) fail('товар не лёг в свою зону');
 
-// 7. тупик: своя зона забита, выложить нечего и нечем — смена закрывается
+// 9. тупик: своя зона забита, выложить нечего и нечем — смена закрывается
 const stuck = await page.evaluate(() => {
   const P = window.__proto; P.startShift(0, 4242);
   const st = P.state;
-  st.customers.forEach(c => { c.patience = 9999; });
+  st.customers = [];                                  // тупик проверяем без заказов
   st.boosters.undo = 0; st.boosters.fridge = 0; st.boosters.shuffle = 0;
   const zones = ['dairy','grocery','produce'];
   const byZone = z => [...new Set(st.belt)].filter(id => P.section(id) === z);
@@ -137,7 +182,7 @@ const stuck = await page.evaluate(() => {
   const ids = byZone(zone);
   const r = P.zoneRange(zone);
   // забиваем зону, оставляя один слот и не собирая тройку
-  for (let i = r.from, k = 0; i < r.to - 1; i++, k++) st.tray[i] = ids[k % 2];
+  for (let i = r.from, k = 0; i < r.to - 1; i++, k++) { st.tray[i] = ids[k % 2]; st.fresh[i] = 99; }
   const last = ids.find(id => st.tray.filter(t => t === id).length < 2);
   if (!last) return { skipped: true };
   st.belt = st.belt.filter(id => P.section(id) === zone);   // на завозе только эта зона
@@ -152,7 +197,7 @@ if (stuck.skipped) fail('тест собран неверно: не нашлос
 if (stuck.before.status !== 'playing') fail('тест собран неверно: смена уже кончилась');
 if (stuck.status !== 'lost') fail('смена зависла: выложить нечего, но проигрыша нет');
 
-// 8. бот проходит первую смену на большинстве сидов
+// 10. бот проходит первую смену на большинстве сидов
 const auto = await page.evaluate(() => {
   const P = window.__proto;
   const runs = [];
@@ -171,7 +216,7 @@ const auto = await page.evaluate(() => {
 console.log('автопрохождение', JSON.stringify({ wins: auto.wins, runs: auto.runs.map(r => r.status) }));
 if (auto.wins < 3) fail('бот закрывает первую смену реже чем на трёх сидах из пяти');
 
-// 9. мета: выручка в кассе, апгрейд прилавка расширяет его
+// 11. мета: выручка в кассе, апгрейд прилавка расширяет его
 const metaCheck = await page.evaluate(() => {
   const P = window.__proto;
   const walletAfterWin = Math.round(P.meta.wallet);
@@ -190,7 +235,7 @@ if (metaCheck.walletAfterWin <= 0) fail('выручка не попала в к�
 if (!metaCheck.trayGrew || !metaCheck.beltGrew || !metaCheck.fridgeGrew || metaCheck.boosters.undo !== 2)
   fail('апгрейды не применились к смене');
 
-// 10. поздние смены остаются решаемыми
+// 12. поздние смены остаются решаемыми
 const endless = await page.evaluate(() => {
   const P = window.__proto;
   P.startShift(19);
@@ -201,11 +246,14 @@ const endless = await page.evaluate(() => {
 console.log('бесконечные смены', JSON.stringify(endless));
 if (!endless.solvable || !endless.mod3) fail('поздние смены нерешаемы');
 
-// 11. нужный товар подтягивается из глубины завоза, состав завоза не меняется
+// 13. нужный товар подтягивается из глубины завоза, состав завоза не меняется
 const demand = await page.evaluate(() => {
   const P = window.__proto; P.startShift(1, 9001);
   const st = P.state;
-  const need = st.customers.map(c => c.productId);
+  // один покупатель с одной позицией — так видно, что подтянулся именно нужный товар
+  const want = [...new Set(st.belt)][0];
+  st.customers = [{ order: [{ id: want, n: 3 }], patience: 99, max: 99, face: 0 }];
+  const need = [want];
   const n = P.beltVisible();
   // прячем всё заказанное сразу за видимым окном — под рукой нужного не осталось
   const deep = st.belt.filter(id => need.includes(id));
@@ -228,7 +276,7 @@ if (!demand.visibleAfter || demand.pulls < 1) fail('нужный товар не
 if (demand.pulls > 1) fail('подтягивание сработало повторно, хотя нужное уже под рукой');
 if (!demand.sameComposition) fail('состав завоза изменился — смена может стать нерешаемой');
 
-// 12. журнал плейтеста: события смены, сводка, выгрузка и панель
+// 14. журнал плейтеста: события смены, сводка, выгрузка и панель
 const journal = await page.evaluate(() => {
   const P = window.__proto;
   P.log.clear();
@@ -263,7 +311,7 @@ if (!journal.booster || journal.booster.kind !== 'undo' || typeof journal.booste
 if (!journal.textOk) fail('выгрузка журнала не разбирается как JSON');
 if (!journal.panelOpen || !journal.panelClosed) fail('панель журнала не открывается или не закрывается');
 
-// 13. журнал переживает перезагрузку — плейтест идёт в несколько заходов
+// 15. журнал переживает перезагрузку — плейтест идёт в несколько заходов
 await page.reload();
 await page.waitForFunction(() => window.__proto, null, { timeout: 15000 });
 const persisted = await page.evaluate(() => {
@@ -273,7 +321,7 @@ const persisted = await page.evaluate(() => {
 console.log('журнал после перезагрузки', JSON.stringify(persisted));
 if (persisted.shifts !== 1 || !persisted.boot) fail('журнал не пережил перезагрузку');
 
-// 14. новая сборка сносит прогресс, та же сборка — сохраняет
+// 16. новая сборка сносит прогресс, та же сборка — сохраняет
 const build = await page.evaluate(() => window.__proto.build);
 await page.evaluate(() => {
   localStorage.setItem('shopsort.meta', JSON.stringify({
