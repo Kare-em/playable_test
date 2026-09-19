@@ -102,8 +102,42 @@ const lose = await page.evaluate(() => {
 console.log('lose path', JSON.stringify(lose));
 await page.screenshot({ path: '/tmp/shot-lose.png' });
 
+// 7. мета: выручка в кассу, покупка апгрейда, эффект на следующей смене
+const metaCheck = await page.evaluate(() => {
+  const P = window.__proto;
+  P.startShift(0, 4242);
+  while (P.state.status === 'playing' && P.autoStep()) {}
+  const won = P.state.status === 'won';
+  const walletAfterWin = Math.round(P.meta.wallet);
+  P.meta.wallet = 99999;                       // гарантируем покупку в тесте
+  const beforeBelt = P.beltVisible(), beforeFridge = P.fridgeSize();
+  const bought = [P.buy('cart'), P.buy('fridge'), P.buy('cash')];
+  P.startShift(1);
+  return {
+    won, walletAfterWin,
+    bought,
+    beltGrew: P.beltVisible() > beforeBelt,
+    fridgeGrew: P.fridgeSize() > beforeFridge,
+    boosters: P.state.boosters,
+    levels: P.meta.up
+  };
+});
+console.log('meta', JSON.stringify(metaCheck));
+
+// 8. смены не кончаются: конфиг двадцатой смены осмысленный
+const endless = await page.evaluate(() => {
+  const P = window.__proto;
+  P.startShift(19);
+  const c = P.state.cfg;
+  return { crates: c.crates, goal: c.goal, solvable: Math.floor(c.crates / 3) >= c.goal, mod3: c.crates % 3 === 0 };
+});
+console.log('endless', JSON.stringify(endless));
+
 await browser.close();
 console.log('console errors:', errors.length ? errors : 'none');
+if (!metaCheck.won || metaCheck.walletAfterWin <= 0) { console.log('FAIL: выручка не попала в кассу'); process.exit(1); }
+if (!metaCheck.beltGrew || !metaCheck.fridgeGrew || metaCheck.boosters.undo !== 2) { console.log('FAIL: апгрейды не применились'); process.exit(1); }
+if (!endless.solvable || !endless.mod3) { console.log('FAIL: бесконечные смены нерешаемы'); process.exit(1); }
 if (errors.length) process.exit(1);
 if (auto.status !== 'won') { console.log('FAIL: autoplay did not win'); process.exit(1); }
 if (manual.sold < 1) { console.log('FAIL: manual triple did not sell'); process.exit(1); }
