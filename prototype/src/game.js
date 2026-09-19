@@ -58,26 +58,46 @@
     { id: 'butter', name: 'Масло',    glyph: '🧈', section: 'dairy',   price: 60, color: 0xFDECBA, accent: 0xFFDC64 },
     { id: 'curd',   name: 'Творог',   glyph: '🥣', section: 'dairy',   price: 55, color: 0xF7F1E4, accent: 0x4FA8DC },
     { id: 'sourcream', name: 'Сметана', glyph: '🥛', section: 'dairy', price: 50, color: 0xF3F6F8, accent: 0x37A778 },
+    { id: 'kefir',  name: 'Кефир',    glyph: '🥛', section: 'dairy',   price: 45, color: 0xF4F8FB, accent: 0x3FA96F },
+    { id: 'icecream', name: 'Мороженое', glyph: '🍦', section: 'dairy', price: 65, color: 0xFBE3EC, accent: 0xE58AAC },
+    { id: 'kefir',  name: 'Кефир',    glyph: '🥛', section: 'dairy',   price: 45, color: 0xF4F8FB, accent: 0x3FA96F },
+    { id: 'icecream', name: 'Мороженое', glyph: '🍦', section: 'dairy', price: 65, color: 0xFBE3EC, accent: 0xE58AAC },
     { id: 'bread',  name: 'Хлеб',     glyph: '🍞', section: 'grocery', price: 30, color: 0xFDDCA4, accent: 0xFF9F32 },
     { id: 'grain',  name: 'Крупа',    glyph: '🍚', section: 'grocery', price: 45, color: 0xF2E4CA, accent: 0xE5C776 },
     { id: 'cookie', name: 'Печенье',  glyph: '🍪', section: 'grocery', price: 50, color: 0xF7D3A2, accent: 0xE58227 },
     { id: 'can',    name: 'Консервы', glyph: '🥫', section: 'grocery', price: 65, color: 0xF3C6B8, accent: 0xF16C4C },
     { id: 'pasta',  name: 'Макароны', glyph: '🍝', section: 'grocery', price: 40, color: 0xFFE9B8, accent: 0xE0A82E },
     { id: 'tea',    name: 'Чай',      glyph: '🍵', section: 'grocery', price: 70, color: 0xF2C0C6, accent: 0xC7455C },
+    { id: 'coffee', name: 'Кофе',     glyph: '☕', section: 'grocery', price: 90, color: 0xD9BCA4, accent: 0x5C3A22 },
+    { id: 'sugar',  name: 'Сахар',    glyph: '🧂', section: 'grocery', price: 35, color: 0xEFF3F7, accent: 0x2E7FBE },
+    { id: 'coffee', name: 'Кофе',     glyph: '☕', section: 'grocery', price: 90, color: 0xD9BCA4, accent: 0x5C3A22 },
+    { id: 'sugar',  name: 'Сахар',    glyph: '🧂', section: 'grocery', price: 35, color: 0xEFF3F7, accent: 0x2E7FBE },
     { id: 'apple',  name: 'Яблоко',   glyph: '🍎', section: 'produce', price: 35, color: 0xFBC2BF, accent: 0xFF675B },
     { id: 'carrot', name: 'Морковь',  glyph: '🥕', section: 'produce', price: 25, color: 0xFFD7AF, accent: 0xFF9B36 },
     { id: 'tomato', name: 'Помидор',  glyph: '🍅', section: 'produce', price: 40, color: 0xFFC2B5, accent: 0xFF4D3C },
     { id: 'grape',  name: 'Виноград', glyph: '🍇', section: 'produce', price: 70, color: 0xDCC9F3, accent: 0xAA78E2 },
     { id: 'banana', name: 'Банан',    glyph: '🍌', section: 'produce', price: 45, color: 0xFFF0A8, accent: 0xE8B81C },
     { id: 'cucumber', name: 'Огурец', glyph: '🥒', section: 'produce', price: 30, color: 0xDAF0C4, accent: 0x4E9B35 },
+    { id: 'potato', name: 'Картофель', glyph: '🥔', section: 'produce', price: 25, color: 0xE8CB94, accent: 0xC29A5C },
+    { id: 'lemon',  name: 'Лимон',    glyph: '🍋', section: 'produce', price: 40, color: 0xFFF6B0, accent: 0xF5D129 },
+    { id: 'potato', name: 'Картофель', glyph: '🥔', section: 'produce', price: 25, color: 0xE8CB94, accent: 0xC29A5C },
+    { id: 'lemon',  name: 'Лимон',    glyph: '🍋', section: 'produce', price: 40, color: 0xFFF6B0, accent: 0xF5D129 },
     { id: 'sausage',name: 'Колбаса',  glyph: '🌭', section: 'meat',    price: 80, color: 0xF3C7BE, accent: 0xC0503C },
     { id: 'chicken',name: 'Курица',   glyph: '🍗', section: 'meat',    price: 90, color: 0xF7DCB4, accent: 0xD9963C },
     { id: 'steak',  name: 'Стейк',    glyph: '🥩', section: 'meat',    price: 110, color: 0xF0BDB2, accent: 0xAE362A },
     { id: 'wieners',name: 'Сосиски',  glyph: '🌭', section: 'meat',    price: 70, color: 0xF3C8BC, accent: 0xD96A50 },
+    { id: 'mince',  name: 'Фарш',     glyph: '🍖', section: 'meat',    price: 85, color: 0xF0C3B8, accent: 0xC04A35 },
+    { id: 'fish',   name: 'Рыба',     glyph: '🐟', section: 'meat',    price: 95, color: 0xCFE6F2, accent: 0x6FA9C9 },
+    { id: 'mince',  name: 'Фарш',     glyph: '🍖', section: 'meat',    price: 85, color: 0xF0C3B8, accent: 0xC04A35 },
+    { id: 'fish',   name: 'Рыба',     glyph: '🐟', section: 'meat',    price: 95, color: 0xCFE6F2, accent: 0x6FA9C9 },
     { id: 'soap',   name: 'Мыло',     glyph: '🧼', section: 'chem',    price: 60, color: 0xFCEFC4, accent: 0xE0B23A },
     { id: 'powder', name: 'Порошок',  glyph: '🧴', section: 'chem',    price: 95, color: 0xCFE6F7, accent: 0x3E8FC6 },
     { id: 'spray',  name: 'Спрей',    glyph: '🧽', section: 'chem',    price: 85, color: 0xD3F0E1, accent: 0x36A57C },
-    { id: 'sponge', name: 'Губка',    glyph: '🧴', section: 'chem',    price: 35, color: 0xFFE98F, accent: 0x3FAE86 }
+    { id: 'sponge', name: 'Губка',    glyph: '🧴', section: 'chem',    price: 35, color: 0xFFE98F, accent: 0x3FAE86 },
+    { id: 'paper',  name: 'Бумага',   glyph: '🧻', section: 'chem',    price: 45, color: 0xF6F1E8, accent: 0xB08F5E },
+    { id: 'gloves', name: 'Перчатки', glyph: '🧤', section: 'chem',    price: 40, color: 0xFFE1A8, accent: 0xEA7BA8 },
+    { id: 'paper',  name: 'Бумага',   glyph: '🧻', section: 'chem',    price: 45, color: 0xF6F1E8, accent: 0xB08F5E },
+    { id: 'gloves', name: 'Перчатки', glyph: '🧤', section: 'chem',    price: 40, color: 0xFFE1A8, accent: 0xEA7BA8 }
   ];
 
   // План смены — обслуженные покупатели, а не просто проданные тройки.
@@ -91,6 +111,7 @@
     { types: 6,  crates: 30, goal: 6, patience: 12, visible: 5, lives: 4, sale: false },
     { types: 8,  crates: 36, goal: 9, patience: 13, visible: 6, lives: 3, sale: false },
     { types: 10, crates: 39, goal: 9, patience: 14, visible: 6, lives: 3, sale: true  }
+    // дальше ассортимент растёт формулой в shiftConfig: +2 позиции за смену
   ];
 
   var QUEUE_SIZE = 3;
@@ -492,7 +513,8 @@
     else {
       var goal = 11 + (idx - 2);
       base = {
-        types: 14, crates: 0, goal: goal,
+        types: 10 + (idx - 2) * 2,           // ассортимент ширится с каждой сменой
+        crates: 0, goal: goal,
         patience: Math.max(10, 13 - Math.floor((idx - 2) / 3)),
         visible: 6, lives: 3, sale: true
       };
@@ -519,10 +541,17 @@
 
   // Товар ложится только в свою зону, поэтому набор смены берётся из секций
   // поровну: иначе одна зона забивается, а другая простаивает всю смену.
-  function poolFor(types) {
+  function poolFor(types, rnd) {
     var zs = activeZones(), pool = [];
     var byZone = zs.map(function (z) {
-      return PRODUCTS.filter(function (p) { return p.section === z.id; });
+      var list = PRODUCTS.filter(function (p) { return p.section === z.id; });
+      if (rnd) {                                   // каждая смена — свой набор с полки
+        for (var i = list.length - 1; i > 0; i--) {
+          var j = Math.floor(rnd() * (i + 1)), t = list[i];
+          list[i] = list[j]; list[j] = t;
+        }
+      }
+      return list;
     });
     var total = 0;
     byZone.forEach(function (list) { total += list.length; });
@@ -552,7 +581,7 @@
     var cfg = shiftConfig(shiftIdx);
     var rnd = mulberry32(seed == null ? (shiftIdx + 1) * 7919 : seed);
 
-    var pool = poolFor(cfg.types);
+    var pool = poolFor(cfg.types, rnd);
     var saleProduct = null;
     if (cfg.sale) saleProduct = pool[Math.floor(rnd() * pool.length)].id;
 

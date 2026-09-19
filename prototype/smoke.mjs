@@ -33,13 +33,10 @@ const triple = await page.evaluate(() => {
   const P = window.__proto; P.startShift(0, 4242);
   const st = P.state;
   st.customers = [];                            // проверяем продажу без заказа
-  const home = { milk:'dairy',cheese:'dairy',yogurt:'dairy',butter:'dairy',
-                 bread:'grocery',grain:'grocery',cookie:'grocery',can:'grocery',
-                 apple:'produce',carrot:'produce',tomato:'produce',grape:'produce' };
   const target = st.belt[0];
   st.belt.unshift(target, target, target);     // тест про правило, а не про удачу
   let placed = 0;
-  for (let n = 0; n < 3; n++) { P.select('belt', 0); if (P.place(home[target])) placed++; }
+  for (let n = 0; n < 3; n++) { P.select('belt', 0); if (P.place(P.section(target))) placed++; }
   return { target, placed, revenue: Math.round(st.revenue), combo: st.combo, tray: st.tray.filter(Boolean).length };
 });
 console.log('тройка в своей зоне', JSON.stringify(triple));
@@ -419,6 +416,26 @@ console.log('режимы корзины', JSON.stringify(modes));
 if (modes.partial.onTray !== 0) fail('до выкупа всех отделов покупатель не забрал позицию с полки');
 if (modes.whole.onTray !== 1) fail('после выкупа всех отделов позиция всё равно ушла по одной');
 if (modes.whole.served !== 0) fail('неполный набор закрылся как заказ');
+
+// 20. ассортимент расширяется от смены к смене и не выходит за открытые отделы
+const variety = await page.evaluate(() => {
+  const P = window.__proto;
+  Object.keys(P.meta.up).forEach(k => { P.meta.up[k] = 0; });
+  const at = (i) => { P.startShift(i, 100 + i); return P.state.cfg.types; };
+  const two = [at(0), at(2), at(5), at(9)];
+  P.startShift(9, 42);
+  const zones2 = new Set(P.state.belt.map(id => P.section(id)));
+  P.meta.wallet = 999999; P.buy('produce'); P.buy('meat'); P.buy('chem');
+  const five = [at(0), at(2), at(5), at(9)];
+  P.startShift(9, 42);
+  const zones5 = new Set(P.state.belt.map(id => P.section(id)));
+  return { two, five, zones2: [...zones2], zones5: [...zones5] };
+});
+console.log('ассортимент', JSON.stringify(variety));
+if (!(variety.two[0] < variety.two[1] && variety.two[1] < variety.two[2]))
+  fail('ассортимент не растёт от смены к смене');
+if (variety.zones2.length !== 2) fail('в завоз попал товар закрытого отдела');
+if (variety.zones5.length !== 5) fail('после покупки отделов их товар не попадает в завоз');
 
 await page.screenshot({ path: '/tmp/smoke-final.png' });
 await browser.close();
