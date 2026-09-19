@@ -141,7 +141,34 @@ const endless = await page.evaluate(() => {
 console.log('бесконечные смены', JSON.stringify(endless));
 if (!endless.solvable || !endless.mod3) fail('поздние смены нерешаемы');
 
-// 9. журнал плейтеста: события смены, сводка, выгрузка и панель
+// 9. нужный товар подтягивается из глубины завоза, состав завоза не меняется
+const demand = await page.evaluate(() => {
+  const P = window.__proto; P.startShift(1, 9001);
+  const st = P.state;
+  const need = st.customers.map(c => c.productId);
+  const n = P.beltVisible();
+  // прячем всё заказанное сразу за видимым окном — под рукой нужного не осталось
+  const deep = st.belt.filter(id => need.includes(id));
+  const rest = st.belt.filter(id => !need.includes(id));
+  st.belt.length = 0;
+  rest.slice(0, n).forEach(id => st.belt.push(id));
+  deep.forEach(id => st.belt.push(id));
+  rest.slice(n).forEach(id => st.belt.push(id));
+  const before = st.belt.slice().sort().join(',');
+  const seen = () => st.belt.slice(0, n).some(id => need.includes(id));
+  const visibleBefore = seen();
+  let pulls = 0;
+  for (let k = 0; k < 8; k++) if (P.pullDemanded()) pulls++;
+  return { need, visibleBefore, pulls, visibleAfter: seen(),
+           sameComposition: before === st.belt.slice().sort().join(','), len: st.belt.length };
+});
+console.log('подтягивание нужного', JSON.stringify(demand));
+if (demand.visibleBefore) fail('тест собран неверно: заказанное и так было видно');
+if (!demand.visibleAfter || demand.pulls < 1) fail('нужный товар не подтянулся к началу завоза');
+if (demand.pulls > 1) fail('подтягивание сработало повторно, хотя нужное уже под рукой');
+if (!demand.sameComposition) fail('состав завоза изменился — смена может стать нерешаемой');
+
+// 10. журнал плейтеста: события смены, сводка, выгрузка и панель
 const journal = await page.evaluate(() => {
   const P = window.__proto;
   P.log.clear();
@@ -174,7 +201,7 @@ if (!journal.booster || journal.booster.kind !== 'undo' || typeof journal.booste
 if (!journal.textOk) fail('выгрузка журнала не разбирается как JSON');
 if (!journal.panelOpen || !journal.panelClosed) fail('панель журнала не открывается или не закрывается');
 
-// 10. журнал переживает перезагрузку — плейтест идёт в несколько заходов
+// 11. журнал переживает перезагрузку — плейтест идёт в несколько заходов
 await page.reload();
 await page.waitForFunction(() => window.__proto, null, { timeout: 15000 });
 const persisted = await page.evaluate(() => {
