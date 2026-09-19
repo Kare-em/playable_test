@@ -1,6 +1,6 @@
 /*
- * Смоук-тест прототипа: npx playwright нужен локально.
- *   npx http-server -p 8777 .   (из корня репозитория)
+ * Смоук-тест прототипа.
+ *   npx http-server -p 8777 .        (из корня репозитория)
  *   node prototype/smoke.mjs http://127.0.0.1:8777
  */
 const { chromium } = await import('playwright').catch(() =>
@@ -12,134 +12,137 @@ const page = await browser.newPage({ viewport: { width: 420, height: 860 }, devi
 const errors = [];
 page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+const fail = (msg) => { console.log('FAIL: ' + msg); process.exitCode = 1; };
 
 await page.goto(base + '/prototype/index.html');
 await page.waitForFunction(() => window.__proto, null, { timeout: 15000 });
 console.log('boot ok');
 
-// 1. базовое состояние
-let s = await page.evaluate(() => {
-  const st = window.__proto.state;
-  return { belt: st.belt.length, goal: st.goal, types: st.cfg.types, status: st.status };
+// 1. стартовое состояние: прилавок на 7 слотов, очередь из 3 покупателей
+const start = await page.evaluate(() => {
+  const P = window.__proto; P.startShift(0, 4242);
+  const st = P.state;
+  return { belt: st.belt.length, goal: st.goal, tray: P.traySize(),
+           customers: st.customers.length, status: st.status };
 });
-console.log('shift1 state', JSON.stringify(s));
+console.log('shift1', JSON.stringify(start));
+if (start.tray !== 9 || start.customers !== 3) fail('прилавок или очередь собраны неверно');
 
-// 2. ручной сценарий: собрать тройку в «своей» секции
-const manual = await page.evaluate(() => {
-  const P = window.__proto, st = P.state;
+// 2. три одинаковых в своей зоне: продажа, бонус зоны, комбо
+const triple = await page.evaluate(() => {
+  const P = window.__proto; P.startShift(0, 4242);
+  const st = P.state;
+  const home = { milk:'dairy',cheese:'dairy',yogurt:'dairy',butter:'dairy',
+                 bread:'grocery',grain:'grocery',cookie:'grocery',can:'grocery',
+                 apple:'produce',carrot:'produce',tomato:'produce',grape:'produce' };
   const target = st.belt[0];
-  const home = { milk:'dairy', cheese:'dairy', yogurt:'dairy', butter:'dairy',
-                 bread:'grocery', grain:'grocery', cookie:'grocery', can:'grocery',
-                 apple:'produce', carrot:'produce', tomato:'produce', grape:'produce' }[target];
-  let placed = 0, guard = 0;
-  while (placed < 3 && guard++ < 60) {
-    const idx = st.belt.slice(0, 5).indexOf(target);
-    if (idx === -1) { // сдвигаем ленту нейтральной выкладкой
-      P.select('belt', 0);
-      const other = ['dairy','grocery','produce'].find(x => x !== home && st.shelf[x].includes(null));
-      if (!other || !P.place(other)) break;
-      continue;
-    }
-    P.select('belt', idx);
-    if (!P.place(home)) break;
-    placed++;
-  }
-  return { target, home, placed, revenue: Math.round(st.revenue), sold: st.sold, combo: st.combo };
+  st.belt.unshift(target, target, target);     // тест про правило, а не про удачу
+  let placed = 0;
+  for (let n = 0; n < 3; n++) { P.select('belt', 0); if (P.place(home[target])) placed++; }
+  return { target, placed, revenue: Math.round(st.revenue), combo: st.combo, tray: st.tray.filter(Boolean).length };
 });
-console.log('manual triple', JSON.stringify(manual));
-await page.screenshot({ path: '/tmp/shot-mid.png' });
+console.log('тройка в своей зоне', JSON.stringify(triple));
+if (triple.revenue <= 0 || triple.combo < 1) fail('продажа в своей зоне не сработала');
 
-// 3. автобот добивает смену
-const auto = await page.evaluate(async () => {
-  const P = window.__proto;
-  P.startShift(0, 4242);           // чистая смена: проверяем именно путь к победе
-  let steps = 0;
-  while (P.state.status === 'playing' && steps < 400) { if (!P.autoStep()) break; steps++; }
-  return { steps, status: P.state.status, sold: P.state.sold, goal: P.state.goal,
-           revenue: Math.round(P.state.revenue), streak: P.streak };
+// 3. заказ покупателя закрывается продажей и двигает план
+const order = await page.evaluate(() => {
+  const P = window.__proto; P.startShift(0, 777);
+  const st = P.state;
+  const want = st.customers[0].productId;
+  const zone = { milk:'dairy',cheese:'dairy',yogurt:'dairy',butter:'dairy',
+                 bread:'grocery',grain:'grocery',cookie:'grocery',can:'grocery',
+                 apple:'produce',carrot:'produce',tomato:'produce',grape:'produce' }[want];
+  const before = st.served;
+  // подкладываем нужный товар в начало завоза — тест про заказ, а не про удачу
+  st.belt.unshift(want, want, want);
+  for (let n = 0; n < 3; n++) { P.select('belt', 0); P.place(zone); }
+  return { want, servedBefore: before, servedAfter: st.served, revenue: Math.round(st.revenue) };
 });
-console.log('autoplay', JSON.stringify(auto));
-await page.screenshot({ path: '/tmp/shot-result.png' });
+console.log('заказ', JSON.stringify(order));
+if (order.servedAfter <= order.servedBefore) fail('заказ покупателя не засчитался');
 
-// 4. переход на следующую смену
-const next = await page.evaluate(() => {
-  window.__proto.nextShift();
-  const st = window.__proto.state;
-  return { shift: st.shiftIdx + 1, types: st.cfg.types, goal: st.goal, sale: st.saleProduct, status: st.status };
+// 4. терпение: покупатель уходит, серия рвётся
+const patience = await page.evaluate(() => {
+  const P = window.__proto; P.startShift(0, 31337);
+  const st = P.state;
+  st.customers.forEach(c => { c.patience = 1; });
+  P.select('belt', 0);
+  P.place('grocery');
+  return { lost: st.lost, combo: st.combo, queue: st.customers.length };
 });
-console.log('next shift', JSON.stringify(next));
+console.log('терпение', JSON.stringify(patience));
+if (patience.lost < 1) fail('покупатель не ушёл по истечении терпения');
 
-// 5. бустеры
-const boosters = await page.evaluate(() => {
-  const P = window.__proto, st = P.state;
-  P.select('belt', 0); const toFridge = P.booster.fridge();
-  const fridgeLen = st.fridge.length;
-  P.select('belt', 0); P.place('dairy');
-  const undone = P.booster.undo();
-  const shuffled = P.booster.shuffle();
-  return { toFridge, fridgeLen, undone, shuffled, left: st.boosters };
-});
-console.log('boosters', JSON.stringify(boosters));
-
-// 6. проигрыш: забиваем стеллаж заведомо разными товарами
+// 5. проигрыш: прилавок забит разными товарами
 const lose = await page.evaluate(() => {
-  const P = window.__proto;
-  P.startShift(2, 12345);
+  const P = window.__proto; P.startShift(2, 12345);
   const st = P.state;
   let guard = 0;
-  while (st.status === 'playing' && guard++ < 40) {
-    const sec = ['dairy','grocery','produce'].find(x => st.shelf[x].includes(null));
-    if (!sec) break;
-    // кладём первый попавшийся товар, не совпадающий с уже лежащими в секции
-    const visible = st.belt.slice(0, 5);
-    let idx = visible.findIndex(p => !st.shelf[sec].includes(p));
-    if (idx === -1) idx = 0;
-    P.select('belt', idx);
-    if (!P.place(sec)) break;
+  while (st.status === 'playing' && guard++ < 60) {
+    const zones = ['dairy','grocery','produce'];
+    let done = false;
+    for (const z of zones) {
+      const r = P.zoneRange(z);
+      let free = false;
+      for (let i = r.from; i < r.to; i++) if (st.tray[i] === null) free = true;
+      if (!free) continue;
+      const vis = st.belt.slice(0, P.beltVisible());
+      let idx = vis.findIndex(p => !st.tray.includes(p));
+      if (idx === -1) idx = 0;
+      P.select('belt', idx);
+      done = P.place(z);
+      break;
+    }
+    if (!done) break;
   }
-  return { status: st.status, filled: ['dairy','grocery','produce'].map(x => st.shelf[x].filter(Boolean).length) };
+  return { status: st.status, filled: st.tray.filter(Boolean).length };
 });
-console.log('lose path', JSON.stringify(lose));
-await page.screenshot({ path: '/tmp/shot-lose.png' });
+console.log('проигрыш', JSON.stringify(lose));
+if (lose.status !== 'lost') fail('смена не проигрывается при забитом прилавке');
 
-// 7. мета: выручка в кассу, покупка апгрейда, эффект на следующей смене
+// 6. бот проходит смену целиком
+const auto = await page.evaluate(() => {
+  const P = window.__proto; P.startShift(0, 4242);
+  let steps = 0;
+  while (P.state.status === 'playing' && steps < 400) { if (!P.autoStep()) break; steps++; }
+  return { steps, status: P.state.status, served: P.state.served, goal: P.state.goal,
+           revenue: Math.round(P.state.revenue), streak: P.streak };
+});
+console.log('автопрохождение', JSON.stringify(auto));
+if (auto.status !== 'won') fail('бот не смог закрыть первую смену');
+
+// 7. мета: выручка в кассе, апгрейд прилавка расширяет его
 const metaCheck = await page.evaluate(() => {
   const P = window.__proto;
-  P.startShift(0, 4242);
-  while (P.state.status === 'playing' && P.autoStep()) {}
-  const won = P.state.status === 'won';
   const walletAfterWin = Math.round(P.meta.wallet);
-  P.meta.wallet = 99999;                       // гарантируем покупку в тесте
-  const beforeBelt = P.beltVisible(), beforeFridge = P.fridgeSize();
-  const bought = [P.buy('cart'), P.buy('fridge'), P.buy('cash')];
+  P.meta.wallet = 99999;
+  const before = { tray: P.traySize(), belt: P.beltVisible(), fridge: P.fridgeSize() };
+  const bought = [P.buy('counter'), P.buy('cart'), P.buy('fridge'), P.buy('cash')];
   P.startShift(1);
-  return {
-    won, walletAfterWin,
-    bought,
-    beltGrew: P.beltVisible() > beforeBelt,
-    fridgeGrew: P.fridgeSize() > beforeFridge,
-    boosters: P.state.boosters,
-    levels: P.meta.up
-  };
+  return { walletAfterWin, bought,
+           trayGrew: P.traySize() > before.tray,
+           beltGrew: P.beltVisible() > before.belt,
+           fridgeGrew: P.fridgeSize() > before.fridge,
+           boosters: P.state.boosters };
 });
-console.log('meta', JSON.stringify(metaCheck));
+console.log('мета', JSON.stringify(metaCheck));
+if (metaCheck.walletAfterWin <= 0) fail('выручка не попала в кассу');
+if (!metaCheck.trayGrew || !metaCheck.beltGrew || !metaCheck.fridgeGrew || metaCheck.boosters.undo !== 2)
+  fail('апгрейды не применились к смене');
 
-// 8. смены не кончаются: конфиг двадцатой смены осмысленный
+// 8. поздние смены остаются решаемыми
 const endless = await page.evaluate(() => {
   const P = window.__proto;
   P.startShift(19);
   const c = P.state.cfg;
-  return { crates: c.crates, goal: c.goal, solvable: Math.floor(c.crates / 3) >= c.goal, mod3: c.crates % 3 === 0 };
+  return { crates: c.crates, goal: c.goal, patience: c.patience,
+           solvable: Math.floor(c.crates / 3) >= c.goal, mod3: c.crates % 3 === 0 };
 });
-console.log('endless', JSON.stringify(endless));
+console.log('бесконечные смены', JSON.stringify(endless));
+if (!endless.solvable || !endless.mod3) fail('поздние смены нерешаемы');
 
+await page.screenshot({ path: '/tmp/smoke-final.png' });
 await browser.close();
-console.log('console errors:', errors.length ? errors : 'none');
-if (!metaCheck.won || metaCheck.walletAfterWin <= 0) { console.log('FAIL: выручка не попала в кассу'); process.exit(1); }
-if (!metaCheck.beltGrew || !metaCheck.fridgeGrew || metaCheck.boosters.undo !== 2) { console.log('FAIL: апгрейды не применились'); process.exit(1); }
-if (!endless.solvable || !endless.mod3) { console.log('FAIL: бесконечные смены нерешаемы'); process.exit(1); }
-if (errors.length) process.exit(1);
-if (auto.status !== 'won') { console.log('FAIL: autoplay did not win'); process.exit(1); }
-if (manual.sold < 1) { console.log('FAIL: manual triple did not sell'); process.exit(1); }
-if (lose.status !== 'lost') { console.log('FAIL: lose condition not reached'); process.exit(1); }
-console.log('ALL CHECKS PASSED');
+console.log('ошибки в консоли:', errors.length ? errors : 'нет');
+if (errors.length) fail('есть ошибки в консоли');
+if (!process.exitCode) console.log('ALL CHECKS PASSED');
