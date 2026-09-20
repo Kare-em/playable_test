@@ -791,8 +791,17 @@
       }
       if (taken.length) {
         c.cheer = 2;                       // пару ходов покупатель доволен
+        // Точки перелёта снимаем здесь, до уплотнения прилавка и до того, как
+        // покупатель с собранным заказом уйдёт из очереди: после этого и
+        // номера слотов, и место в очереди уже другие.
+        var qi = Math.max(0, state.customers.indexOf(c));
+        pendingPickups.push({
+          to: { x: queueX(qi) + 30, y: queueY(qi) + queueH() / 2 - 24 },
+          from: taken.map(function (t) {
+            return { id: t.id, x: slotX(t.slot), y: slotY(t.slot) };
+          })
+        });
         compactTray();
-        pickupFx(c, taken);
       }
       if (orderDone(c)) completeOrder(c);
     });
@@ -957,6 +966,7 @@
     flyGhost(productById(productId), from, { x: slotX(slot), y: slotY(slot) }, function () {
       delete hiddenSlots[key];
       sfx('place');
+      runPickups();
       if (sale) runSaleFx(); else render({ pop: slot });
     });
 
@@ -1384,6 +1394,7 @@
   var app, root, layers = {}, hud = {}, zoneNodes = {}, beltNodes = [];
   var toastBox, overlay, TEXTURES = {};
   var hiddenSlots = {}, pendingSaleFx = null, shownRevenue = 0, selectedNode = null, signNode = null;
+  var pendingPickups = [];       // перелёты к покупателям, ждущие посадки выложенного товара
 
   function label(text, size, color, weight) {
     return new PIXI.Text({
@@ -1670,7 +1681,11 @@
     { id: 'hipster', age: 'adult', skin: 0xD79A6A, hair: 0x1F1A17, cloth: 0x8C6BD6,
       style: 'quiff',    beard: 'full', shades: true, collar: 'shirt' },
     { id: 'kid',     age: 'kid',   skin: 0xFFD3A8, hair: 0x6B4A2A, cloth: 0xF0A32A,
-      style: 'streak',   freckles: true, goggles: true, collar: 'hoodie' }
+      style: 'streak',   freckles: true, goggles: true, collar: 'hoodie' },
+    { id: 'granny',  age: 'old',   skin: 0xE8C09A, hair: 0xD9DCE1, cloth: 0x9A5A48,
+      style: 'waves',    lashes: true, wrinkles: true, lips: 0xB4626F, collar: 'dress' },
+    { id: 'courier', age: 'young', skin: 0xF0C193, hair: 0x4A3520, cloth: 0xD98E2B,
+      hat: 'cap',        style: 'short', collar: 'hoodie' }
   ];
 
   function personById(idx) {
@@ -1684,7 +1699,8 @@
   var BUST_BY_PERSON = {
     rancher: 'bust-dacha', worker: 'bust-handyman', grandpa: 'bust-pensioner',
     ponytail: 'bust-student', diva: 'bust-neighbor', redhead: 'bust-mom',
-    hipster: 'bust-taxi', kid: 'bust-schoolboy'
+    hipster: 'bust-taxi', kid: 'bust-schoolboy',
+    granny: 'bust-granny', courier: 'bust-courier'
   };
 
   // Настроение на растровый бюст не переносится — оно и так читается пузырём
@@ -2800,13 +2816,19 @@
   }
 
   // Товар улетает с полки к покупателю: видно, кто именно что забрал.
-  function pickupFx(c, taken) {
-    var idx = Math.max(0, state.customers.indexOf(c));
-    var to = { x: queueX(idx) + 30, y: queueY(idx) + queueH() / 2 - 24 };
-    taken.forEach(function (t) {
-      flyGhost(productById(t.id), { x: slotX(t.slot), y: slotY(t.slot) }, to, function () {});
+  // Забранный товар летит к покупателю только после того, как выложенный
+  // долетел до своей ячейки. Раньше оба перелёта стартовали одновременно, и
+  // один и тот же предмет летел в слот и из слота сразу — это и читалось как
+  // дублированная анимация.
+  function runPickups() {
+    var list = pendingPickups;
+    pendingPickups = [];
+    list.forEach(function (p) {
+      p.from.forEach(function (f) {
+        flyGhost(productById(f.id), { x: f.x, y: f.y }, p.to, function () {});
+      });
     });
-    sfx('select');
+    if (list.length) sfx('select');
   }
 
   // Корзина собрана: покупатель платит и уходит.

@@ -22,7 +22,8 @@ const exists = async (u) => access(u).then(() => true, () => false);
 
 // Типажи покупателей из PEOPLE в game.js и подходящие им бюсты. Ключ здесь —
 // id типажа, чтобы соответствие читалось в одном месте, а не угадывалось.
-const BUSTS = ['dacha', 'handyman', 'pensioner', 'student', 'neighbor', 'mom', 'taxi', 'schoolboy'];
+const BUSTS = ['dacha', 'handyman', 'pensioner', 'student', 'neighbor', 'mom', 'taxi', 'schoolboy',
+  'granny', 'courier'];
 
 const PLAN = [
   ...ORDER.map((id) => ({ key: id, file: `product-${id}.webp`, max: 256 })),
