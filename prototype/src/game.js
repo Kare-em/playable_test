@@ -1422,9 +1422,18 @@
   function queueW() { return QUEUE_CARD_W; }
   function queueH() { return QUEUE_CARD_H; }
 
+  // Цветной корешок у левого края карточки: отступ от края и ширина полосы.
+  // Отсюда же берёт размеры отрисовка, чтобы полоса и отведённое ей место
+  // не разъехались.
+  var SPINE_X = 4, SPINE_W = 10;
+  // Сколько места корешок занимает слева: сама полоса плюс воздух, чтобы
+  // портрет на неё не наезжал.
+  function spineBand() { return SPINE_X + SPINE_W; }
+
   // Полоса под портрет слева. Персонаж — то, по чему игрок опознаёт заказ,
-  // поэтому полоса широкая; остальное отдано корзине.
-  function faceW() { return Math.max(84, Math.min(116, Math.round(queueW() * 0.5))); }
+  // поэтому полоса широкая; остальное отдано корзине. Корешок прибавляется
+  // сверху, а не отъедает портрет: иначе персонажи мельчают.
+  function faceW() { return spineBand() + Math.max(84, Math.min(116, Math.round(queueW() * 0.5))); }
 
   // Радиус значка в корзине и центр позиции li. Один расчёт и для отрисовки
   // карточки, и для точки, куда летит забранный товар.
@@ -2741,8 +2750,8 @@
       // рисуем до обводок, а не после.
       var acc = c ? C.sign : C.steel, accA = c ? 0.95 : 0.5;
       var back = c ? C.panel : 0xEDE2CE;
-      g.roundRect(4, 4, 20, qh - 8, 10).fill({ color: acc, alpha: accA });
-      g.rect(14, 4, 12, qh - 8).fill(back);
+      g.roundRect(SPINE_X, 4, SPINE_W * 2, qh - 8, SPINE_W).fill({ color: acc, alpha: accA });
+      g.rect(SPINE_X + SPINE_W, 4, SPINE_W + 2, qh - 8).fill(back);
       g.roundRect(4, 4, qw - 8, qh - 8, 16).stroke({ width: 3, color: 0xFFFFFF, alpha: 0.9 });
       g.roundRect(0, 0, qw, qh, 20).stroke({ width: 4, color: c ? C.steelDark : C.steel });
       box.addChild(g);
@@ -2759,9 +2768,9 @@
       var mood = customerMood(c);
       var counts = trayCounts();
 
-      var fw = faceW();
-      var face = personPortrait(fw - 10, qh - 12, c.face, mood);
-      face.x = fw / 2; face.y = qh - 4;
+      var fw = faceW(), sb = spineBand();
+      var face = personPortrait(fw - sb - 10, qh - 12, c.face, mood);
+      face.x = sb + (fw - sb) / 2; face.y = qh - 4;
       box.addChild(face);
 
       // Корзина: значки крупные — на телефоне видно, что именно просят.
