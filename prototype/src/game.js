@@ -2733,9 +2733,18 @@
       var g = new PIXI.Graphics();
       g.roundRect(3, 6, qw, qh, 20).fill({ color: 0x3A2717, alpha: 0.22 });
       g.roundRect(0, 0, qw, qh, 20).fill(c ? C.panel : 0xEDE2CE);
+      // Цветной корешок слева. Рисуем «таблеткой» (радиус ровно в половину
+      // ширины) и срезаем правую половину цветом карточки: прежняя полоса
+      // шириной 10 с радиусом 20 вырождалась и торчала прямыми углами за
+      // скруглённый край — со стороны это читалось как отдельная красная
+      // капля рядом с карточкой. Корешок уходит под рамку, поэтому его
+      // рисуем до обводок, а не после.
+      var acc = c ? C.sign : C.steel, accA = c ? 0.95 : 0.5;
+      var back = c ? C.panel : 0xEDE2CE;
+      g.roundRect(4, 4, 20, qh - 8, 10).fill({ color: acc, alpha: accA });
+      g.rect(14, 4, 12, qh - 8).fill(back);
       g.roundRect(4, 4, qw - 8, qh - 8, 16).stroke({ width: 3, color: 0xFFFFFF, alpha: 0.9 });
       g.roundRect(0, 0, qw, qh, 20).stroke({ width: 4, color: c ? C.steelDark : C.steel });
-      g.roundRect(0, 0, 10, qh, 20).fill({ color: c ? C.sign : C.steel, alpha: c ? 0.95 : 0.5 });
       box.addChild(g);
 
       if (!c) {
