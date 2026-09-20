@@ -1966,15 +1966,35 @@
   /* ------------------------------------------------------------- статика */
 
   function buildStatic() {
+    // Фон точки — сгенерированный кадр зала, если он собрался. Вписываем с
+    // перекрытием (cover): на вытянутом телефоне вписывание «по размеру»
+    // оставило бы пустые поля сверху и снизу.
+    var bgTex = TEXTURES['bg-shop1'];
+    if (bgTex) {
+      var photo = new PIXI.Sprite(bgTex);
+      var bk = Math.max(W / bgTex.width, H / bgTex.height);
+      photo.width = bgTex.width * bk;
+      photo.height = bgTex.height * bk;
+      photo.anchor.set(0.5);
+      photo.x = W / 2; photo.y = H / 2;
+      root.addChild(photo);
+    }
+
     var bg = new PIXI.Graphics();
-    vGradient(bg, 0, 0, W, H, C.wallTop, C.wallBot, 28);
+    if (!bgTex) {
+      vGradient(bg, 0, 0, W, H, C.wallTop, C.wallBot, 28);
+      // дальние стеллажи зала — чуть намеченные вертикали, чтобы был объём помещения
+      for (var wx = PANEL_X; wx < W; wx += 132) {
+        bg.rect(wx, SIGN_Y + 10, 78, 200).fill({ color: C.steel, alpha: 0.08 });
+        bg.rect(wx, SIGN_Y + 10, 78, 6).fill({ color: C.steelDark, alpha: 0.09 });
+      }
+    } else {
+      // Светлая вуаль поверх кадра: панели интерфейса кремовые, и без неё
+      // тёмные углы фона тянут на себя внимание с игрового поля.
+      bg.rect(0, 0, W, H).fill({ color: 0xF3E7D3, alpha: 0.32 });
+    }
     // потолочные лампы зала: холодная засветка сверху
     bg.ellipse(W / 2, 20, W * 0.7, 70).fill({ color: 0xFFF6DF, alpha: 0.7 });
-    // дальние стеллажи зала — чуть намеченные вертикали, чтобы был объём помещения
-    for (var wx = PANEL_X; wx < W; wx += 132) {
-      bg.rect(wx, SIGN_Y + 10, 78, 200).fill({ color: C.steel, alpha: 0.08 });
-      bg.rect(wx, SIGN_Y + 10, 78, 6).fill({ color: C.steelDark, alpha: 0.09 });
-    }
     // пол виден узкой полосой снизу
     var floorY = PORTRAIT ? Math.min(H - 28, BTN_Y + BTN_SIZE + 22) : H - 28;
     bg.rect(0, floorY, W, H - floorY).fill(C.floor);
@@ -2800,7 +2820,7 @@
     var t = label('ЗАКАЗ ГОТОВ!', 24, 0xFFFFFF, '800');
     t.anchor.set(0.5); t.x = 24;
     box.addChild(t);
-    var face = personGraphic(20, state.lastFace || 0, 'happy');
+    var face = personPortrait(20, state.lastFace || 0, 'happy');
     face.x = -96; face.y = 0;
     box.addChild(face);
     box.x = W / 2; box.y = trayPanelY() - 28;
@@ -2815,7 +2835,7 @@
   }
 
   function customerLeftFx() {
-    var face = personGraphic(28, state.lastFace || 0, 'sad');
+    var face = personPortrait(28, state.lastFace || 0, 'sad');
     face.x = W / 2; face.y = QUEUE_Y + 60;
     layers.fx.addChild(face);
     anim(800, function (p) {
@@ -3291,7 +3311,10 @@
       startShift(meta.shiftIdx);
       buildStatic();
       fit();
-      loadArt().then(function () { render(); });
+      // Статика строится до того, как текстуры загрузились, поэтому после
+      // загрузки её надо пересобрать: иначе фон зала и прочая растровая
+      // статика не появятся до первого изменения размера окна.
+      loadArt().then(function () { rebuildBoard(); render(); });
       var resizeTimer = null;
       var onResize = function () {
         fitScale();                            // масштаб подгоняем сразу

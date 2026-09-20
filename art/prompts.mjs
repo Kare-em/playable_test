@@ -9,11 +9,20 @@
 // Полуреалистичный стиль «уютного казуала»: объём и настоящие материалы при
 // дружелюбных, чуть утрированных пропорциях. Палитра по-прежнему держится за
 // кремовый фон из art/products.mjs, иначе растр не сядет рядом с вектором.
-export const STYLE = [
+// Общая часть: чем и как нарисовано. Не говорит ни слова о композиции,
+// потому что у предмета и у фона она противоположная.
+const RENDER = [
   'semi-realistic stylised illustration for a premium cosy casual mobile game',
   'soft three-dimensional volume: painterly shading, gentle gradients, believable materials — '
     + 'glass, tin, paper, fabric, worn wood',
-  'slightly cartoonish proportions: friendly and a touch exaggerated, warm and appealing, never photographic',
+  'slightly cartoonish proportions: friendly and a touch exaggerated, warm and appealing, never photographic'
+];
+
+const NO_TEXT = 'NO text, NO letters, NO numbers, NO logos, NO watermark, NO UI elements';
+
+// Композиция предмета: один объект в центре, чистый силуэт, кремовое поле.
+export const STYLE = [
+  ...RENDER,
   'instantly recognisable subject with true-to-life details and honest colours, '
     + 'so it reads at a glance at small size',
   'warm soft lighting from the upper left, gentle contact shadow grounding the subject',
@@ -22,7 +31,21 @@ export const STYLE = [
   'warm palette on a plain pale cream background, the soft warm off-white of unbleached paper',
   'crisp readable silhouette, centred subject, clean edges without a drawn ink outline',
   'no harsh specular glare, no lens flare, no depth-of-field blur on the subject',
-  'NO text, NO letters, NO numbers, NO logos, NO watermark, NO UI elements'
+  NO_TEXT
+].join(', ');
+
+// Композиция фона — ровно обратная, и раньше её не было вовсе: фоны собирались
+// на STYLE и модель послушно рисовала «центрированный субъект с читаемым
+// силуэтом», то есть стеллаж посреди кремового поля вместо фона во весь кадр.
+export const STYLE_BACKDROP = [
+  ...RENDER,
+  'this is a BACKGROUND PLATE, not an object study: there is no single subject and nothing is centred',
+  'the artwork bleeds to all four edges and fills the entire frame — no framed panel, no rounded corners, '
+    + 'no border, no vignette, no margin and no empty field around the artwork',
+  'everything is softly out of focus, reduced to gentle shapes and warm colour, so that interface panels '
+    + 'placed on top stay readable',
+  'warm soft ambient light, low contrast, muted warm palette',
+  NO_TEXT
 ].join(', ');
 
 const CUTOUT = 'isolated subject on plain flat background, wide empty margin around the subject';
@@ -70,6 +93,9 @@ export const PROMPTS = {};
 const add = (id, prompt, size, group, prio) => {
   PROMPTS[id] = { prompt: `${STYLE}. ${prompt}`, size, group, prio };
 };
+const addBackdrop = (id, prompt, size, group, prio) => {
+  PROMPTS[id] = { prompt: `${STYLE_BACKDROP}. ${prompt}`, size, group, prio };
+};
 
 // B1 — бюсты покупателей для баббла заказа
 for (const [id, who] of Object.entries(CUSTOMERS)) {
@@ -98,7 +124,10 @@ for (const [uid, thing] of Object.entries(UPGRADES)) {
 }
 // A9 — фоны игрового экрана
 for (const [sid, shop] of Object.entries(SHOPS)) {
-  add(`bg-${sid}`, `blurred cozy background of a ${shop} seen behind a shelf, soft depth, no people, vertical composition`,
+  addBackdrop(`bg-${sid}`,
+    `the out-of-focus interior of a ${shop}: shelves, walls and warm lamp light dissolved into soft shapes, `
+    + `no people, no readable packaging. Tall vertical composition for a phone screen, `
+    + `filling the whole frame from edge to edge.`,
     '1024x1536', 'background', 'P1');
 }
 // ------------------------------------------------------------------- товары

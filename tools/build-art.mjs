@@ -26,7 +26,11 @@ const BUSTS = ['dacha', 'handyman', 'pensioner', 'student', 'neighbor', 'mom', '
 
 const PLAN = [
   ...ORDER.map((id) => ({ key: id, file: `product-${id}.webp`, max: 256 })),
-  ...BUSTS.map((who) => ({ key: `bust-${who}`, file: `bust-${who}.webp`, max: 192 }))
+  ...BUSTS.map((who) => ({ key: `bust-${who}`, file: `bust-${who}.webp`, max: 192 })),
+  // Фон только первой точки: сети точек в прототипе ещё нет, а три лишних
+  // полноэкранных кадра — это полтораста килобайт в мобильной сборке впустую.
+  // Кадр размытый, поэтому 1024 по большей стороне хватает с запасом.
+  { key: 'bg-shop1', file: 'bg-shop1.webp', max: 1024 }
 ];
 
 const browser = await chromium.launch();

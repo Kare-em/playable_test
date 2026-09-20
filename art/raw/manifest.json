@@ -694,29 +694,29 @@
     "actual": "1696x2528",
     "group": "background",
     "prio": "P1",
-    "promptHash": "50cb7a5ef2056915",
-    "bytes": 2259048,
-    "createdAt": "2026-09-20T18:15:57.586Z",
+    "promptHash": "8e41c6429fe6174b",
+    "bytes": 1952894,
+    "createdAt": "2026-09-20T18:47:47.984Z",
     "ready": {
       "file": "bg-shop1.webp",
       "size": "1440x2146",
-      "bytes": 118844
+      "bytes": 52642
     }
   },
   "bg-shop2": {
     "file": "bg-shop2.jpg",
     "model": "google/gemini-3.1-flash-image-preview",
     "size": "1024x1536",
-    "actual": "1696x2528",
+    "actual": "848x1264",
     "group": "background",
     "prio": "P1",
-    "promptHash": "98a97b25cd43a1b4",
-    "bytes": 2278642,
-    "createdAt": "2026-09-20T18:16:22.640Z",
+    "promptHash": "534967b484ed0dfa",
+    "bytes": 538037,
+    "createdAt": "2026-09-20T18:48:14.350Z",
     "ready": {
       "file": "bg-shop2.webp",
-      "size": "1440x2146",
-      "bytes": 129244
+      "size": "848x1264",
+      "bytes": 32830
     }
   },
   "bg-shop3": {
@@ -726,13 +726,13 @@
     "actual": "1696x2528",
     "group": "background",
     "prio": "P1",
-    "promptHash": "5dc1b4c7bac4b35b",
-    "bytes": 2231467,
-    "createdAt": "2026-09-20T18:16:47.675Z",
+    "promptHash": "8009bfdc5109c4ed",
+    "bytes": 1938174,
+    "createdAt": "2026-09-20T18:48:41.681Z",
     "ready": {
       "file": "bg-shop3.webp",
       "size": "1440x2146",
-      "bytes": 115860
+      "bytes": 47948
     }
   },
   "bg-shop4": {
@@ -742,13 +742,13 @@
     "actual": "1696x2528",
     "group": "background",
     "prio": "P1",
-    "promptHash": "ba459a442231dc9d",
-    "bytes": 2250676,
-    "createdAt": "2026-09-20T18:17:12.987Z",
+    "promptHash": "00be79f15de92534",
+    "bytes": 1918438,
+    "createdAt": "2026-09-20T18:49:07.635Z",
     "ready": {
       "file": "bg-shop4.webp",
       "size": "1440x2146",
-      "bytes": 131110
+      "bytes": 53994
     }
   },
   "iap-starter": {
