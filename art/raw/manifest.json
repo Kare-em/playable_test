@@ -7,7 +7,13 @@
     "prio": "P0",
     "promptHash": "479822f06e8c6995",
     "bytes": 2131180,
-    "createdAt": "2026-09-20T03:00:16.724Z"
+    "createdAt": "2026-09-20T03:00:16.724Z",
+    "ready": {
+      "file": "bust-granny.webp",
+      "size": "512x512",
+      "bytes": 19472
+    },
+    "actual": "2048x2048"
   },
   "bust-courier": {
     "file": "bust-courier.jpg",
@@ -17,7 +23,13 @@
     "prio": "P0",
     "promptHash": "434f7bc56fc087f5",
     "bytes": 1810565,
-    "createdAt": "2026-09-20T03:00:51.821Z"
+    "createdAt": "2026-09-20T03:00:51.821Z",
+    "ready": {
+      "file": "bust-courier.webp",
+      "size": "512x512",
+      "bytes": 16580
+    },
+    "actual": "2048x2048"
   },
   "bust-schoolboy": {
     "file": "bust-schoolboy.jpg",
@@ -27,7 +39,13 @@
     "prio": "P0",
     "promptHash": "c0d1504c1fd5fac1",
     "bytes": 1904755,
-    "createdAt": "2026-09-20T03:01:21.658Z"
+    "createdAt": "2026-09-20T03:01:21.658Z",
+    "ready": {
+      "file": "bust-schoolboy.webp",
+      "size": "512x512",
+      "bytes": 12868
+    },
+    "actual": "2048x2048"
   },
   "interior-shop1-s0": {
     "file": "interior-shop1-s0.jpg",
@@ -37,6 +55,12 @@
     "prio": "P0",
     "promptHash": "7edb714cd6b8fa05",
     "bytes": 1796033,
-    "createdAt": "2026-09-20T03:01:53.803Z"
+    "createdAt": "2026-09-20T03:01:53.803Z",
+    "ready": {
+      "file": "interior-shop1-s0.webp",
+      "size": "1440x1440",
+      "bytes": 89250
+    },
+    "actual": "2048x2048"
   }
 }

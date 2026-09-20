@@ -34,6 +34,7 @@ const flag = (name, def = null) => {
 
 const dryRun = !!flag('dry-run');
 const outDir = new URL('../art/raw/', import.meta.url);
+const readyDir = new URL('../art/ready/', import.meta.url);
 const manifestPath = new URL('manifest.json', outDir);
 
 function fail(msg) {
@@ -102,11 +103,20 @@ const manifest = await readFile(manifestPath, 'utf8').then(JSON.parse).catch(() 
 const force = !!flag('force');
 const exists = async (p) => access(p).then(() => true, () => false);
 
+// Оригиналы из art/raw/ в репозиторий не едут (тяжёлые), поэтому «уже есть»
+// означает: цел либо оригинал, либо ужатый файл в art/ready/. Иначе свежий
+// клон переплатил бы за весь набор заново.
+const alreadyHave = async (prev) => {
+  if (!prev) return false;
+  if (prev.file && await exists(new URL(prev.file, outDir))) return true;
+  return !!prev.ready?.file && await exists(new URL(prev.ready.file, readyDir));
+};
+
 if (!force) {
   const kept = [];
   for (const id of ids) {
     const prev = manifest[id];
-    if (prev?.file && await exists(new URL(prev.file, outDir))) {
+    if (await alreadyHave(prev)) {
       if (prev.promptHash === hash(PROMPTS[id].prompt)) continue;  // уже сгенерировано тем же промптом
       console.log(`~ ${id}: промпт изменился с прошлой генерации`);
     }
@@ -239,6 +249,7 @@ for (const id of ids) {
 }
 
 console.log(`\nготово: ${done}, с ошибкой: ${failed}. Файлы в art/raw/`);
+if (done) console.log('дальше: node tools/shrink-art.mjs — ужать под размеры из docs/art-assets.md');
 if (spent) console.log(`потрачено примерно $${spent.toFixed(4)}`);
 if (resized.size) {
   console.log(`внимание: модель вернула ${[...resized].join(', ')} вместо запрошенного размера — `
