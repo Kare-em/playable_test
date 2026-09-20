@@ -6,13 +6,20 @@
  * плохо держат единый вид на серии, общая преамбула — главная защита от разъезда.
  */
 
-// палитра совпадает с art/products.mjs, иначе растр не сядет на вектор
+// Полуреалистичный стиль «уютного казуала»: объём и настоящие материалы при
+// дружелюбных, чуть утрированных пропорциях. Палитра по-прежнему держится за
+// кремовый фон из art/products.mjs, иначе растр не сядет рядом с вектором.
 export const STYLE = [
-  'flat 2D cartoon vector illustration for a cozy mobile casual game',
-  'warm palette: cream background #F3E7D3, dark brown ink outline #4A3B2A',
-  'uniform bold outline on every shape, one soft elliptical ground shadow',
-  'no gradients, no photorealism, no 3D render, no lens effects',
-  'clean readable silhouette, centered subject',
+  'semi-realistic stylised illustration for a premium cosy casual mobile game',
+  'soft three-dimensional volume: painterly shading, gentle gradients, believable materials — '
+    + 'glass, tin, paper, fabric, worn wood',
+  'slightly cartoonish proportions: friendly and a touch exaggerated, warm and appealing, never photographic',
+  'instantly recognisable subject with true-to-life details and honest colours, '
+    + 'so it reads at a glance at small size',
+  'warm soft lighting from the upper left, gentle contact shadow grounding the subject',
+  'warm palette on a cream #F3E7D3 background',
+  'crisp readable silhouette, centred subject, clean edges without a drawn ink outline',
+  'no harsh specular glare, no lens flare, no depth-of-field blur on the subject',
   'NO text, NO letters, NO numbers, NO logos, NO watermark, NO UI elements'
 ].join(', ');
 
