@@ -608,7 +608,9 @@
       goal: cfg.goal,
       lost: 0,                    // ушедшие покупатели
       combo: 0,
-      boosters: { undo: 1 + meta.up.cash, fridge: 1 + meta.up.cash, shuffle: 1 + meta.up.cash },
+      boosters: { undo: 1 + meta.up.cash + adBoosters,
+                  fridge: 1 + meta.up.cash + adBoosters,
+                  shuffle: 1 + meta.up.cash + adBoosters },
       lastPlacement: null,
       lastFace: 0,
       saleProduct: saleProduct,
@@ -617,6 +619,7 @@
     bestCombo = 0;
     shownRevenue = 0;
     hiddenSlots = {};
+    adBoosters = 0;                 // бонус разовый: он уже разошёлся по счётчикам выше
     queueSpots = {}; queueGen = {};
     for (var i = 0; i < queueSize(); i++) spawnCustomer();
     pullDemanded();
@@ -1211,6 +1214,25 @@
     showOverlay(status, reason);
   }
 
+  /* Вознаграждаемое видео. Награда выдаётся строго по onRewarded, который
+     прослойка отдаёт вторым аргументом как paid: если игрок свернул ролик на
+     второй секунде, он не получает ничего. Кнопки показываем только когда
+     площадка действительно есть — в локальном плейтесте мёртвой кнопки не
+     будет. */
+  function adAvailable() {
+    try { return !!(window.YGames && window.YGames.isPlatform()); } catch (e) { return false; }
+  }
+
+  function watchAd(onReward) {
+    if (!adAvailable()) return;
+    try {
+      window.YGames.rewarded(null, function (paid) {
+        if (paid) onReward();
+        else toast('Ролик не досмотрен — награда не начислена');
+      });
+    } catch (e) { toast('Реклама сейчас недоступна'); }
+  }
+
   // Смена окончена — это и есть логическая пауза (требование 4.4), в ней
   // показываем полноэкранную. Частоту показа регулирует сама платформа,
   // поэтому своего счётчика не держим: просто не зовём её посреди смены.
@@ -1230,14 +1252,17 @@
     });
   }
 
-  function retryShift() {
-    logEvent('retry', { shift: state.shiftIdx + 1 });
+  // skipAd — когда переигровку уже оплатили просмотром ролика: показывать
+  // следом ещё и полноэкранную значит крутить две рекламы подряд.
+  function retryShift(skipAd) {
+    logEvent('retry', { shift: state.shiftIdx + 1, byAd: skipAd === true });
     hideOverlay();
-    betweenShifts(function () {
+    var go = function () {
       startShift(state.shiftIdx, Date.now() & 0xffff);
       rebuildBoard();
       render();
-    });
+    };
+    if (skipAd === true) go(); else betweenShifts(go);
   }
 
   /* -------------------------------------------------------------- геометрия */
@@ -1491,6 +1516,7 @@
   var toastBox, overlay, TEXTURES = {};
   var hiddenSlots = {}, pendingSaleFx = null, shownRevenue = 0, selectedNode = null, signNode = null;
   var pendingPickups = [];       // перелёты к покупателям, ждущие посадки выложенного товара
+  var adBoosters = 0;            // бустеры за просмотр рекламы — выдаются на старте смены
   var queueSpots = {}, queueGen = {}, customerSeq = 0;   // где сейчас карточка очереди и чья анимация свежее
 
   function label(text, size, color, weight) {
@@ -3431,7 +3457,10 @@
     overlay.addChild(dim);
 
     var won = status === 'won';
-    var pw = Math.min(620, W - 40), ph = Math.min(470, H - 60);
+    // под кнопку «за рекламу» панель становится выше, иначе она наезжает
+    // на последнюю строку итогов
+    var adRow = adAvailable() && !(status === 'won' && state.doubled);
+    var pw = Math.min(620, W - 40), ph = Math.min(470 + (adRow ? 78 : 0), H - 60);
     var px = (W - pw) / 2, py = (H - ph) / 2;
 
     var panel = new PIXI.Graphics();
@@ -3472,12 +3501,40 @@
       overlay.addChild(why);
     }
 
+    var by = py + ph - 84;
     if (won) {
-      overlay.addChild(button(px + 30, py + ph - 84, pw - 60, 66,
+      if (adRow) {
+        overlay.addChild(button(px + 30, by - 78, pw - 60, 66,
+          'Удвоить выручку', 'за просмотр рекламы', true, function () {
+            watchAd(function () {
+              // Выручка уже ушла в кассу в finish(), поэтому доплачиваем
+              // второй такой же суммой, а не пересчитываем заново.
+              state.doubled = true;
+              meta.wallet += state.revenue;
+              meta.total += state.revenue;
+              totalRevenue += state.revenue;
+              state.revenue *= 2;
+              saveMeta();
+              logEvent('ad_reward', { kind: 'double', gain: state.revenue / 2 });
+              showOverlay(status, reason);        // перерисовать с новой суммой
+            });
+          }));
+      }
+      overlay.addChild(button(px + 30, by, pw - 60, 66,
         'В магазин  ·  ' + money(state.revenue), 'выручка ушла в кассу', true, showShop));
     } else {
-      overlay.addChild(button(px + 30, py + ph - 84, (pw - 76) / 2, 66, 'Переиграть', null, true, retryShift));
-      overlay.addChild(button(px + 46 + (pw - 76) / 2, py + ph - 84, (pw - 76) / 2, 66, 'В магазин', null, true, showShop));
+      if (adRow) {
+        overlay.addChild(button(px + 30, by - 78, pw - 60, 66,
+          'Переиграть с бустерами', '+2 к каждому за просмотр рекламы', true, function () {
+            watchAd(function () {
+              adBoosters = 2;
+              logEvent('ad_reward', { kind: 'boosters' });
+              retryShift(true);
+            });
+          }));
+      }
+      overlay.addChild(button(px + 30, by, (pw - 76) / 2, 66, 'Переиграть', null, true, retryShift));
+      overlay.addChild(button(px + 46 + (pw - 76) / 2, by, (pw - 76) / 2, 66, 'В магазин', null, true, showShop));
     }
   }
 
