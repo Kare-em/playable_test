@@ -1444,7 +1444,12 @@
     var art = TEXTURES[product.id];
     if (art) {
       var sp = new PIXI.Sprite(art);
-      sp.width = size; sp.height = size;
+      // Растровые иконки обрезаны по контуру предмета и потому не квадратные:
+      // морковь вытянута вверх, батон лежит. Вписываем в квадрат size по
+      // большей стороне — иначе спрайт плющит до квадрата.
+      var k = size / Math.max(art.width, art.height);
+      sp.width = art.width * k;
+      sp.height = art.height * k;
       sp.anchor.set(0.5);
       return sp;
     }
@@ -1661,6 +1666,29 @@
   function personById(idx) {
     var n = PEOPLE.length;
     return PEOPLE[((idx | 0) % n + n) % n];
+  }
+
+  // Типаж из PEOPLE -> сгенерированный бюст; ключи кладёт tools/build-art.mjs.
+  // Соответствие держим таблицей, а не угадыванием по имени: типажей восемь,
+  // бюстов десять, и совпадения id между ними нет.
+  var BUST_BY_PERSON = {
+    rancher: 'bust-dacha', worker: 'bust-handyman', grandpa: 'bust-pensioner',
+    ponytail: 'bust-student', diva: 'bust-neighbor', redhead: 'bust-mom',
+    hipster: 'bust-taxi', kid: 'bust-schoolboy'
+  };
+
+  // Настроение на растровый бюст не переносится — оно и так читается пузырём
+  // эмоции, словом под карточкой и полосой терпения. Нет текстуры (ассет не
+  // собрался) — рисуем вектором, как раньше.
+  function personPortrait(r, idx, mood) {
+    var tex = TEXTURES[BUST_BY_PERSON[personById(idx).id]];
+    if (!tex) return personGraphic(r, idx, mood);
+    var sp = new PIXI.Sprite(tex);
+    var k = (r * 2.7) / Math.max(tex.width, tex.height);
+    sp.width = tex.width * k;
+    sp.height = tex.height * k;
+    sp.anchor.set(0.5);
+    return sp;
   }
 
   // r — радиус головы; контейнер отцентрован по лицу.
@@ -2512,7 +2540,7 @@
       var mood = customerMood(c);
       var counts = trayCounts();
 
-      var face = personGraphic(Math.min(28, qh * 0.24), c.face, mood);
+      var face = personPortrait(Math.min(28, qh * 0.24), c.face, mood);
       face.x = 48; face.y = qh * 0.44;
       box.addChild(face);
 

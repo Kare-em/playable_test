@@ -84,8 +84,12 @@ for (const id of ids) {
   const src = new URL(entry.file, rawDir);
   if (!await exists(src)) { console.log(`${id}: нет ${entry.file}, пропуск`); continue; }
 
-  // товар ложится на слот стеллажа, значит нужна альфа: jpeg для него не годится
-    const cutout = entry.group === 'product';
+  // Что ложится поверх чужого фона, то и вырезаем: товар на слот стеллажа,
+    // бюст и фигура на карточку покупателя, апгрейд поверх интерьера (этого
+    // прозрачность требует прямо docs/art-assets.md, строка C2). Интерьеры,
+    // фоны и промо остаются с фоном — они сами и есть фон.
+    const cutout = entry.group === 'product' || entry.group === 'character'
+      || id.startsWith('upgrade-');
     const fmt = cutout && format === 'jpeg' ? 'webp' : format;
     const outFile = `${id}.${fmt === 'jpeg' ? 'jpg' : fmt}`;
   if (!force && await exists(new URL(outFile, outDir))) { skipped++; continue; }

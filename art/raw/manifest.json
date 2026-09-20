@@ -11,8 +11,8 @@
     "createdAt": "2026-09-20T17:53:35.619Z",
     "ready": {
       "file": "bust-granny.webp",
-      "size": "512x512",
-      "bytes": 19958
+      "size": "458x512",
+      "bytes": 37330
     }
   },
   "bust-courier": {
@@ -27,8 +27,8 @@
     "createdAt": "2026-09-20T17:54:02.641Z",
     "ready": {
       "file": "bust-courier.webp",
-      "size": "512x512",
-      "bytes": 16198
+      "size": "462x512",
+      "bytes": 30046
     }
   },
   "bust-schoolboy": {
@@ -43,8 +43,8 @@
     "createdAt": "2026-09-20T17:54:26.324Z",
     "ready": {
       "file": "bust-schoolboy.webp",
-      "size": "512x512",
-      "bytes": 16482
+      "size": "380x512",
+      "bytes": 29036
     }
   },
   "interior-shop1-s0": {
@@ -75,8 +75,8 @@
     "createdAt": "2026-09-20T17:56:02.497Z",
     "ready": {
       "file": "bust-mom.webp",
-      "size": "512x512",
-      "bytes": 18916
+      "size": "390x512",
+      "bytes": 34438
     }
   },
   "bust-taxi": {
@@ -91,8 +91,8 @@
     "createdAt": "2026-09-20T17:56:26.300Z",
     "ready": {
       "file": "bust-taxi.webp",
-      "size": "512x512",
-      "bytes": 20766
+      "size": "450x512",
+      "bytes": 32028
     }
   },
   "bust-dacha": {
@@ -107,8 +107,8 @@
     "createdAt": "2026-09-20T17:56:52.289Z",
     "ready": {
       "file": "bust-dacha.webp",
-      "size": "512x512",
-      "bytes": 18604
+      "size": "317x512",
+      "bytes": 27484
     }
   },
   "bust-student": {
@@ -123,8 +123,8 @@
     "createdAt": "2026-09-20T17:57:21.643Z",
     "ready": {
       "file": "bust-student.webp",
-      "size": "512x512",
-      "bytes": 15026
+      "size": "361x512",
+      "bytes": 26824
     }
   },
   "bust-pensioner": {
@@ -139,8 +139,8 @@
     "createdAt": "2026-09-20T17:57:58.568Z",
     "ready": {
       "file": "bust-pensioner.webp",
-      "size": "512x512",
-      "bytes": 21534
+      "size": "512x507",
+      "bytes": 29552
     }
   },
   "bust-handyman": {
@@ -155,8 +155,8 @@
     "createdAt": "2026-09-20T17:58:24.240Z",
     "ready": {
       "file": "bust-handyman.webp",
-      "size": "512x512",
-      "bytes": 23272
+      "size": "507x512",
+      "bytes": 37466
     }
   },
   "bust-neighbor": {
@@ -171,8 +171,8 @@
     "createdAt": "2026-09-20T17:58:50.127Z",
     "ready": {
       "file": "bust-neighbor.webp",
-      "size": "512x512",
-      "bytes": 20906
+      "size": "457x512",
+      "bytes": 35306
     }
   },
   "full-granny": {
@@ -187,8 +187,8 @@
     "createdAt": "2026-09-20T17:59:16.287Z",
     "ready": {
       "file": "full-granny.webp",
-      "size": "600x894",
-      "bytes": 27778
+      "size": "504x1200",
+      "bytes": 70490
     }
   },
   "full-courier": {
@@ -203,8 +203,8 @@
     "createdAt": "2026-09-20T17:59:42.240Z",
     "ready": {
       "file": "full-courier.webp",
-      "size": "600x894",
-      "bytes": 19700
+      "size": "523x1200",
+      "bytes": 52798
     }
   },
   "full-schoolboy": {
@@ -219,8 +219,8 @@
     "createdAt": "2026-09-20T18:00:08.825Z",
     "ready": {
       "file": "full-schoolboy.webp",
-      "size": "600x894",
-      "bytes": 22574
+      "size": "529x1200",
+      "bytes": 55696
     }
   },
   "full-mom": {
@@ -235,8 +235,8 @@
     "createdAt": "2026-09-20T18:00:36.057Z",
     "ready": {
       "file": "full-mom.webp",
-      "size": "600x894",
-      "bytes": 31014
+      "size": "600x1052",
+      "bytes": 62190
     }
   },
   "full-taxi": {
@@ -251,8 +251,8 @@
     "createdAt": "2026-09-20T18:01:03.458Z",
     "ready": {
       "file": "full-taxi.webp",
-      "size": "600x894",
-      "bytes": 20042
+      "size": "496x1200",
+      "bytes": 47806
     }
   },
   "full-dacha": {
@@ -267,8 +267,8 @@
     "createdAt": "2026-09-20T18:01:39.580Z",
     "ready": {
       "file": "full-dacha.webp",
-      "size": "600x894",
-      "bytes": 20778
+      "size": "453x1200",
+      "bytes": 49478
     }
   },
   "full-student": {
@@ -283,8 +283,8 @@
     "createdAt": "2026-09-20T18:02:18.872Z",
     "ready": {
       "file": "full-student.webp",
-      "size": "600x894",
-      "bytes": 21674
+      "size": "411x1200",
+      "bytes": 52614
     }
   },
   "full-pensioner": {
@@ -299,8 +299,8 @@
     "createdAt": "2026-09-20T18:02:55.498Z",
     "ready": {
       "file": "full-pensioner.webp",
-      "size": "600x894",
-      "bytes": 21338
+      "size": "437x1200",
+      "bytes": 51200
     }
   },
   "full-handyman": {
@@ -315,8 +315,8 @@
     "createdAt": "2026-09-20T18:03:21.625Z",
     "ready": {
       "file": "full-handyman.webp",
-      "size": "600x894",
-      "bytes": 23294
+      "size": "548x1200",
+      "bytes": 54268
     }
   },
   "full-neighbor": {
@@ -331,8 +331,8 @@
     "createdAt": "2026-09-20T18:04:01.657Z",
     "ready": {
       "file": "full-neighbor.webp",
-      "size": "600x894",
-      "bytes": 26874
+      "size": "539x1200",
+      "bytes": 64188
     }
   },
   "interior-shop1-s1": {
@@ -523,8 +523,8 @@
     "createdAt": "2026-09-20T18:09:34.484Z",
     "ready": {
       "file": "upgrade-fridge-l1.webp",
-      "size": "800x800",
-      "bytes": 31688
+      "size": "561x800",
+      "bytes": 46930
     }
   },
   "upgrade-fridge-l2": {
@@ -539,8 +539,8 @@
     "createdAt": "2026-09-20T18:10:13.563Z",
     "ready": {
       "file": "upgrade-fridge-l2.webp",
-      "size": "800x800",
-      "bytes": 36688
+      "size": "652x800",
+      "bytes": 61844
     }
   },
   "upgrade-display-l0": {
@@ -555,8 +555,8 @@
     "createdAt": "2026-09-20T18:10:47.471Z",
     "ready": {
       "file": "upgrade-display-l0.webp",
-      "size": "800x800",
-      "bytes": 38468
+      "size": "800x759",
+      "bytes": 68280
     }
   },
   "upgrade-display-l1": {
@@ -571,8 +571,8 @@
     "createdAt": "2026-09-20T18:11:11.716Z",
     "ready": {
       "file": "upgrade-display-l1.webp",
-      "size": "800x800",
-      "bytes": 36072
+      "size": "788x800",
+      "bytes": 65060
     }
   },
   "upgrade-display-l2": {
@@ -587,8 +587,8 @@
     "createdAt": "2026-09-20T18:11:41.886Z",
     "ready": {
       "file": "upgrade-display-l2.webp",
-      "size": "800x800",
-      "bytes": 42448
+      "size": "800x703",
+      "bytes": 61660
     }
   },
   "upgrade-register-l0": {
@@ -603,8 +603,8 @@
     "createdAt": "2026-09-20T18:12:14.294Z",
     "ready": {
       "file": "upgrade-register-l0.webp",
-      "size": "800x800",
-      "bytes": 25980
+      "size": "800x773",
+      "bytes": 55594
     }
   },
   "upgrade-register-l1": {
@@ -619,8 +619,8 @@
     "createdAt": "2026-09-20T18:12:39.451Z",
     "ready": {
       "file": "upgrade-register-l1.webp",
-      "size": "800x800",
-      "bytes": 34916
+      "size": "800x714",
+      "bytes": 63752
     }
   },
   "upgrade-register-l2": {
@@ -635,8 +635,8 @@
     "createdAt": "2026-09-20T18:13:43.998Z",
     "ready": {
       "file": "upgrade-register-l2.webp",
-      "size": "800x800",
-      "bytes": 22800
+      "size": "800x776",
+      "bytes": 49764
     }
   },
   "upgrade-sign-l0": {
@@ -651,8 +651,8 @@
     "createdAt": "2026-09-20T18:14:08.999Z",
     "ready": {
       "file": "upgrade-sign-l0.webp",
-      "size": "800x800",
-      "bytes": 22786
+      "size": "562x800",
+      "bytes": 54020
     }
   },
   "upgrade-sign-l1": {
@@ -667,8 +667,8 @@
     "createdAt": "2026-09-20T18:14:35.138Z",
     "ready": {
       "file": "upgrade-sign-l1.webp",
-      "size": "800x800",
-      "bytes": 23676
+      "size": "573x800",
+      "bytes": 43560
     }
   },
   "upgrade-sign-l2": {
@@ -683,8 +683,8 @@
     "createdAt": "2026-09-20T18:15:07.828Z",
     "ready": {
       "file": "upgrade-sign-l2.webp",
-      "size": "800x800",
-      "bytes": 22216
+      "size": "776x800",
+      "bytes": 51742
     }
   },
   "bg-shop1": {
@@ -875,8 +875,8 @@
     "createdAt": "2026-09-20T18:24:39.658Z",
     "ready": {
       "file": "upgrade-fridge-l0.webp",
-      "size": "800x800",
-      "bytes": 21596
+      "size": "602x800",
+      "bytes": 41794
     }
   }
 }
