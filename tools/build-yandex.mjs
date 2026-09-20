@@ -22,11 +22,12 @@ const run = promisify(execFile);
 const root = new URL('../', import.meta.url);
 const read = (p) => readFile(new URL(p, root), 'utf8');
 
-const [pixi, audio, art, ysdk, game] = await Promise.all([
+const [pixi, audio, art, ysdk, i18n, game] = await Promise.all([
   read('prototype/vendor/pixi.min.js'),
   read('prototype/src/audio.js'),
   read('prototype/src/art.js'),
   read('prototype/src/ysdk.js'),
+  read('prototype/src/i18n.js'),
   read('prototype/src/game.js')
 ]);
 
@@ -34,7 +35,12 @@ const [pixi, audio, art, ysdk, game] = await Promise.all([
 const safe = (js) => js.replace(/\/\/# sourceMappingURL=.*$/m, '').replace(/<\/script/gi, '<\\/script');
 
 const build = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15);
-const stamp = (js) => js.replace("var BUILD = 'dev';", "var BUILD = '" + build + "';");
+// Кроме метки сборки снимаем флаг плейтеста: на площадке обновление игры не
+// должно стирать прогресс игрока, а журнал плейтеста и «сбросить прогресс» —
+// отладочный интерфейс, которому в рознице не место.
+const stamp = (js) => js
+  .replace("var BUILD = 'dev';", "var BUILD = '" + build + "';")
+  .replace('var PLAYTEST = true;', 'var PLAYTEST = false;');
 
 const html = `<!DOCTYPE html>
 <html lang="ru">
@@ -61,6 +67,7 @@ const html = `<!DOCTYPE html>
 <script>${safe(audio)}</script>
 <script>${safe(art)}</script>
 <script>${safe(ysdk)}</script>
+<script>${safe(i18n)}</script>
 <script>${stamp(safe(game))}</script>
 </body>
 </html>

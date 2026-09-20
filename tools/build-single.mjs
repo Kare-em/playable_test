@@ -8,13 +8,14 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 const root = new URL('../', import.meta.url);
 const read = (p) => readFile(new URL(p, root), 'utf8');
 
-const [pixi, audio, art, ysdk, game] = await Promise.all([
+const [pixi, audio, art, ysdk, i18n, game] = await Promise.all([
   read('prototype/vendor/pixi.min.js'),
   read('prototype/src/audio.js'),
   read('prototype/src/art.js'),
   // прослойка к площадке нужна и здесь: без SDK она молчит, но даёт паузу
   // звука при потере фокуса — плейтест ближе к тому, что увидит игрок
   read('prototype/src/ysdk.js'),
+  read('prototype/src/i18n.js'),
   read('prototype/src/game.js')
 ]);
 
@@ -50,6 +51,7 @@ const html = `<!DOCTYPE html>
 <script>${safe(audio)}</script>
 <script>${safe(art)}</script>
 <script>${safe(ysdk)}</script>
+<script>${safe(i18n)}</script>
 <script>${stamp(safe(game))}</script>
 </body>
 </html>
@@ -76,6 +78,7 @@ const page = `<title>Магазин у дома</title>
 <script>${safe(audio)}</script>
 <script>${safe(art)}</script>
 <script>${safe(ysdk)}</script>
+<script>${safe(i18n)}</script>
 <script>${stamp(safe(game))}</script>
 `;
 await writeFile(new URL('dist/artifact-shop-sort.html', root), page);

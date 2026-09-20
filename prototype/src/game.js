@@ -19,6 +19,9 @@
   // подставляется время публикации: новая сборка — новая отметка, и прогресс
   // игрока обнуляется, чтобы плейтест всегда начинался с первой смены.
   var BUILD = 'dev';
+  // Плейтестовая сборка: снос прогресса на новой сборке и отладочные
+  // инструменты в магазине. tools/build-yandex.mjs ставит здесь false.
+  var PLAYTEST = true;
 
   /* ---------------------------------------------------------------- контент */
 
@@ -169,31 +172,31 @@
 
   var UPGRADES = [
     { id: 'counter', name: 'Прилавок', max: 2, prices: [2500, 6000],
-      effect: function (l) { return '+' + l + ' слот в бакалее'; },
+      effect: function (l) { return '+' + l + T(' слот в бакалее'); },
       hint: 'Больше места на прилавке — меньше тупиков' },
     { id: 'fridge',  name: 'Холодильник', max: 2, prices: [1500, 3500],
-      effect: function (l) { return '+' + l + ' слот хранения'; },
+      effect: function (l) { return '+' + l + T(' слот хранения'); },
       hint: 'Место, чтобы отложить неудобный товар' },
     { id: 'cart',    name: 'Тележка', max: 2, prices: [1200, 2800],
-      effect: function (l) { return '+' + l + ' ячейка завоза'; },
+      effect: function (l) { return '+' + l + T(' ячейка завоза'); },
       hint: 'Видно больше вариантов на завозе' },
     { id: 'cash',    name: 'Касса', max: 2, prices: [1800, 4000],
-      effect: function (l) { return '+' + l + ' заряд бустерам'; },
+      effect: function (l) { return '+' + l + T(' заряд бустерам'); },
       hint: 'Чаще пользуйтесь бустерами смены' },
     { id: 'produce', name: 'Овощной прилавок', max: 1, prices: [6500],
-      effect: function () { return 'открыт отдел овощей'; },
+      effect: function () { return T('открыт отдел овощей'); },
       hint: 'Первый новый отдел: дешёвый товар, короткий срок' },
     { id: 'meat',    name: 'Мясной прилавок', max: 1, prices: [13000],
-      effect: function () { return 'открыт отдел мяса'; },
+      effect: function () { return T('открыт отдел мяса'); },
       hint: 'Дорогой товар, но портится быстрее всех' },
     { id: 'chem',    name: 'Отдел химии', max: 1, prices: [24000],
-      effect: function () { return 'открыт отдел бытовой химии'; },
+      effect: function () { return T('открыт отдел бытовой химии'); },
       hint: 'Дорогой товар, который почти не портится' },
     { id: 'ads',     name: 'Реклама', max: 2, prices: [1600, 3600],
-      effect: function (l) { return '+' + l + ' покупатель в очереди'; },
+      effect: function (l) { return '+' + l + T(' покупатель в очереди'); },
       hint: 'Листовки приводят больше людей' },
     { id: 'sign',    name: 'Вывеска', max: 3, prices: [2000, 4500, 9000],
-      effect: function (l) { return '+' + (l * 5) + ' к терпению покупателей'; },
+      effect: function (l) { return '+' + (l * 5) + T(' к терпению покупателей'); },
       hint: 'Покупатели ждут дольше' }
   ];
 
@@ -211,9 +214,15 @@
     try {
       var raw = JSON.parse(localStorage.getItem(META_KEY) || 'null');
       if (!raw || typeof raw !== 'object') return defaultMeta();
-      if (raw.build !== BUILD) {                 // сборка сменилась — прогресс сносим
-        metaResetFrom = raw.build || 'без отметки';
-        return defaultMeta();
+      if (raw.build !== BUILD) {
+        // В плейтесте смена сборки сносит прогресс намеренно: каждый тест
+        // начинается с первой смены. На площадке так нельзя — обновление
+        // игры не должно стирать прогресс игрока (требование 1.9), поэтому
+        // там мы просто переносим сейв на новую метку сборки.
+        if (PLAYTEST) {
+          metaResetFrom = raw.build || 'без отметки';
+          return defaultMeta();
+        }
       }
       var d = defaultMeta();
       d.wallet = Number(raw.wallet) || 0;
@@ -468,7 +477,7 @@
     meta.up[u.id] += 1;
     saveMeta();
     if (!wasWhole && wholeBasketMode()) {
-      toast('Все отделы открыты: покупатели ждут корзину целиком');
+      toast(T('Все отделы открыты: покупатели ждут корзину целиком'));
     }
     logEvent('upgrade', { id: u.id, level: meta.up[u.id], price: price, wallet: meta.wallet });
     sfx('booster');
@@ -856,7 +865,7 @@
       customerLeftFx();
       spawnCustomer();
     });
-    if (left.length) { toast('Покупатель ушёл не дождавшись'); sfx('wrong'); }
+    if (left.length) { toast(T('Покупатель ушёл не дождавшись')); sfx('wrong'); }
   }
 
   // Срок годности: каждый ход товар на полке стареет. Просрочку списывают —
@@ -885,7 +894,7 @@
     state.combo = 0;
     if (shiftStat) { shiftStat.spoiled += gone.length; shiftStat.writeOff += loss; }
     compactTray();
-    toast('Просрочка: списано на ' + money(loss));
+    toast(T('Просрочка: списано на ') + money(loss));
     sfx('wrong');
   }
 
@@ -934,7 +943,7 @@
   // бакалее, овощи — к овощам. Чужая зона товар не принимает.
   function place(zoneId) {
     if (state.status !== 'playing') return false;
-    if (!state.selected) { toast('Сначала возьмите товар с завоза'); sfx('deny'); return false; }
+    if (!state.selected) { toast(T('Сначала возьмите товар с завоза')); sfx('deny'); return false; }
 
     var sel = state.selected;
     var productId = sel.from === 'belt' ? state.belt[sel.index] : state.fridge[sel.index];
@@ -943,7 +952,7 @@
 
     if (product.section !== zoneId) {
       if (shiftStat) shiftStat.denyZone++;
-      toast(product.name + ' — в зону «' + zoneById(product.section).name + '»');
+      toast(T('{item} — в зону «{zone}»', { item: T(product.name), zone: T(zoneById(product.section).name) }));
       shakeZone(zoneId); sfx('deny');
       return false;
     }
@@ -953,7 +962,7 @@
     for (var i = range.from; i < range.to; i++) if (state.tray[i] === null) { slot = i; break; }
     if (slot === -1) {
       if (shiftStat) shiftStat.denyFull++;
-      toast('В зоне «' + zoneById(zoneId).name + '» нет места'); shakeZone(zoneId); sfx('deny'); return false;
+      toast(T('В зоне «{zone}» нет места', { zone: T(zoneById(zoneId).name) })); shakeZone(zoneId); sfx('deny'); return false;
     }
 
     var fromBelt = sel.from === 'belt';
@@ -1015,6 +1024,12 @@
     });
 
     Y.init(function () {
+      // Язык игрока известен только теперь: до ответа SDK был только язык
+      // браузера. Если площадка сказала другое — пересобираем сцену, иначе
+      // подписи останутся на языке, который угадали при загрузке.
+      var was = window.I18N && window.I18N.get();
+      if (window.I18N && window.I18N.detect() !== was) { rebuildBoard(); render(); }
+
       Y.ready();                       // 1.19.2 — игрок может приступать
       Y.gameplayStart();               // смена уже идёт с момента загрузки
       Y.load(function (cloud) {
@@ -1027,7 +1042,7 @@
         startShift(meta.shiftIdx);
         rebuildBoard();
         render();
-        toast('Прогресс восстановлен из облака');
+        toast(T('Прогресс восстановлен из облака'));
       });
     });
   }
@@ -1035,9 +1050,9 @@
   function checkShiftEnd() {
     if (state.status !== 'playing') return;
     if (state.served >= state.goal) finish('won');
-    else if (state.lost >= state.cfg.lives) finish('lost', 'Слишком много ушедших покупателей');
-    else if (trayIsFull()) finish('lost', 'Прилавок забит — смена сорвана');
-    else if (state.belt.length === 0 && state.fridge.length === 0) finish('lost', 'Завоз кончился, план не выполнен');
+    else if (state.lost >= state.cfg.lives) finish('lost', T('Слишком много ушедших покупателей'));
+    else if (trayIsFull()) finish('lost', T('Прилавок забит — смена сорвана'));
+    else if (state.belt.length === 0 && state.fridge.length === 0) finish('lost', T('Завоз кончился, план не выполнен'));
     else checkStuck();
   }
 
@@ -1062,7 +1077,7 @@
 
   function checkStuck() {
     if (state.status !== 'playing') return;
-    if (!placeableNow() && !escapeLeft()) finish('lost', 'Некуда выложить товар — зоны забиты');
+    if (!placeableNow() && !escapeLeft()) finish('lost', T('Некуда выложить товар — зоны забиты'));
   }
 
   // Любые три одинаковых на прилавке продаются. Бонусы: своя зона и заказ.
@@ -1128,7 +1143,7 @@
   function boosterUndo() {
     if (state.status !== 'playing' || !state.boosters.undo) return false;
     var lp = state.lastPlacement;
-    if (!lp) { toast('Нечего возвращать'); sfx('deny'); return false; }
+    if (!lp) { toast(T('Нечего возвращать')); sfx('deny'); return false; }
     state.tray[lp.slot] = null;
     state.fresh[lp.slot] = 0;
     compactTray();
@@ -1137,7 +1152,7 @@
     state.lastPlacement = null;
     state.boosters.undo--;
     logBooster('undo');
-    toast('Товар возвращён');
+    toast(T('Товар возвращён'));
     sfx('booster');
     render();
     checkStuck();
@@ -1146,19 +1161,19 @@
 
   function boosterFridge() {
     if (state.status !== 'playing' || !state.boosters.fridge) return false;
-    if (state.fridge.length >= fridgeSize()) { toast('Холодильник полон'); sfx('deny'); return false; }
+    if (state.fridge.length >= fridgeSize()) { toast(T('Холодильник полон')); sfx('deny'); return false; }
     if (!state.selected || state.selected.from !== 'belt') {
       pendingFridge = true;                       // ждём тап по товару из завоза
-      toast('Выберите товар для холодильника');
+      toast(T('Выберите товар для холодильника'));
       sfx('select');
       return false;
     }
-    if (state.fridge.length >= fridgeSize()) { toast('Холодильник полон'); sfx('deny'); return false; }
+    if (state.fridge.length >= fridgeSize()) { toast(T('Холодильник полон')); sfx('deny'); return false; }
     state.fridge.push(state.belt.splice(state.selected.index, 1)[0]);
     state.selected = null;
     state.boosters.fridge--;
     logBooster('fridge');
-    toast('Товар отложен в холодильник');
+    toast(T('Товар отложен в холодильник'));
     sfx('booster');
     render();
     checkStuck();
@@ -1175,7 +1190,7 @@
     state.selected = null;
     state.boosters.shuffle--;
     logBooster('shuffle');
-    toast('Завоз перемешан');
+    toast(T('Завоз перемешан'));
     sfx('booster');
     render();
     checkStuck();
@@ -1228,9 +1243,9 @@
     try {
       window.YGames.rewarded(null, function (paid) {
         if (paid) onReward();
-        else toast('Ролик не досмотрен — награда не начислена');
+        else toast(T('Ролик не досмотрен — награда не начислена'));
       });
-    } catch (e) { toast('Реклама сейчас недоступна'); }
+    } catch (e) { toast(T('Реклама сейчас недоступна')); }
   }
 
   // Смена окончена — это и есть логическая пауза (требование 4.4), в ней
@@ -2243,7 +2258,7 @@
     hud.revenue.x = 22; hud.revenue.y = 10;
     root.addChild(hud.revenue);
 
-    var cap = label('ВЫРУЧКА СМЕНЫ', 12, C.hudInkSoft, '700');
+    var cap = label(T('ВЫРУЧКА СМЕНЫ'), 12, C.hudInkSoft, '700');
     cap.x = 24; cap.y = 52;
     root.addChild(cap);
 
@@ -2326,7 +2341,7 @@
     signNode = new PIXI.Container();
     signNode.addChild(g);
 
-    var t = label('ПРОДУКТЫ · ТОРГОВЫЙ ЗАЛ', 18, C.signAlt, '800');
+    var t = label(T('ПРОДУКТЫ · ТОРГОВЫЙ ЗАЛ'), 18, C.signAlt, '800');
     t.anchor.set(0.5); t.x = x + w / 2; t.y = y + h / 2;
     signNode.addChild(t);
     root.addChild(signNode);
@@ -2353,8 +2368,8 @@
     g.rect(PANEL_X - 10, py + 4, PANEL_W + 20, 3).fill({ color: 0xFFFFFF, alpha: 0.4 });
     layers.trayStatic.addChild(g);
 
-    var cap = label(PORTRAIT ? 'КАЖДЫЙ ТОВАР В СВОЙ ОТДЕЛ' :
-      'КАЖДЫЙ ТОВАР В СВОЙ ОТДЕЛ · ТРИ ОДИНАКОВЫХ = ПРОДАЖА', 15, 0xE7EFF5, '800');
+    var cap = label(T(PORTRAIT ? 'КАЖДЫЙ ТОВАР В СВОЙ ОТДЕЛ' :
+      'КАЖДЫЙ ТОВАР В СВОЙ ОТДЕЛ · ТРИ ОДИНАКОВЫХ = ПРОДАЖА'), 15, 0xE7EFF5, '800');
     cap.anchor.set(0.5); cap.x = PANEL_X + PANEL_W / 2; cap.y = trayPanelY() + 22;
     layers.trayStatic.addChild(cap);
     hud.trayCap = cap;
@@ -2378,7 +2393,7 @@
       tag.roundRect(box.x + 2, box.y - 33, box.w - 4, 28, 4).stroke({ width: 3, color: C.ink, alpha: 0.45 });
       tag.roundRect(box.x + 6, box.y - 30, box.w - 12, 6, 3).fill({ color: 0xFFFFFF, alpha: 0.22 });
       node.addChild(tag);
-      var tl = label(z.name.toUpperCase(), 16, 0xFFFFFF, '800');
+      var tl = label(T(z.name).toUpperCase(), 16, 0xFFFFFF, '800');
       tl.anchor.set(0.5); tl.x = box.x + box.w / 2; tl.y = box.y - 19;
       node.addChild(tl);
 
@@ -2428,7 +2443,7 @@
     g.roundRect(BELT_X + 14, BELT_Y + BELT_H - 10, BELT_W - 28, 14, 4).fill({ color: 0x8A5A29, alpha: 0.28 });
     root.addChild(g);
 
-    var t = label('ПОСТАВКА', 18, 0x6B4218, '800');
+    var t = label(T('ПОСТАВКА'), 18, 0x6B4218, '800');
     t.x = BELT_X + 20; t.y = BELT_PANEL_Y + 7;
     root.addChild(t);
 
@@ -2451,7 +2466,7 @@
      .closePath().fill({ color: 0xFFFFFF, alpha: 0.28 });
     layers.fridgeStatic.addChild(g);
 
-    var t = label('ХОЛОДИЛЬНИК', 16, 0x2B5A74, '800');
+    var t = label(T('ХОЛОДИЛЬНИК'), 16, 0x2B5A74, '800');
     t.anchor.set(0, 0.5);
     t.x = BELT_X + 18; t.y = FRIDGE_Y + FRIDGE_SLOT_H / 2;
     layers.fridgeStatic.addChild(t);
@@ -2544,7 +2559,7 @@
       layers.beltItems.addChild(c);
       beltNodes.push(c);
     });
-    hud.beltCount.text = 'осталось ' + state.belt.length;
+    hud.beltCount.text = T('осталось ') + state.belt.length;
 
     var b = state.boosters, playing = state.status === 'playing';
     layers.buttons.addChild(
@@ -2724,7 +2739,7 @@
       box.addChild(g);
 
       if (!c) {
-        var wait = label('ждём покупателя', 15, C.inkSoft, '600');
+        var wait = label(T('ждём покупателя'), 15, C.inkSoft, '600');
         wait.anchor.set(0.5); wait.x = qw / 2; wait.y = qh / 2;
         box.addChild(wait);
         layers.queue.addChild(box);
@@ -2801,7 +2816,7 @@
       bar.roundRect(bx, by, bw, 20, 10).stroke({ width: 3, color: C.ink, alpha: 0.8 });
       box.addChild(bar);
 
-      var pt = label('ждёт ещё ' + c.patience, 13, C.ink, '700');
+      var pt = label(T('ждёт ещё ') + c.patience, 13, C.ink, '700');
       pt.anchor.set(0.5); pt.x = bx + bw / 2; pt.y = by + 10;
       box.addChild(pt);
 
@@ -2833,8 +2848,8 @@
   }
 
   function moodWord(mood) {
-    return mood === 'happy' ? 'доволен' : mood === 'wait' ? 'ждёт'
-         : mood === 'worry' ? 'нервничает' : 'вот-вот уйдёт';
+    return T(mood === 'happy' ? 'доволен' : mood === 'wait' ? 'ждёт'
+           : mood === 'worry' ? 'нервничает' : 'вот-вот уйдёт');
   }
 
   // Пузырь эмоции рядом с лицом — сердечко, капля или знак раздражения.
@@ -2865,8 +2880,8 @@
 
   function renderHud() {
     hud.revenue.text = money(shownRevenue);
-    hud.shift.text = 'Смена ' + (state.shiftIdx + 1);
-    hud.streak.text = 'смен подряд: ' + streak;
+    hud.shift.text = T('Смена ') + (state.shiftIdx + 1);
+    hud.streak.text = T('смен подряд: ') + streak;
 
     var bx = HUD_PLAN_X, by = 30, bw = HUD_PLAN_W, bh = 24;
     var p = Math.min(state.served / state.goal, 1);
@@ -2874,7 +2889,7 @@
     hud.planBar.roundRect(bx, by, bw, bh, 5).fill(C.hudTrack);
     if (p > 0) hud.planBar.roundRect(bx, by, Math.max(bh, bw * p), bh, 5).fill(C.green);
     hud.planBar.roundRect(bx, by, bw, bh, 5).stroke({ width: 3, color: C.steel, alpha: 0.8 });
-    hud.planText.text = 'Обслужено  ' + state.served + ' / ' + state.goal;
+    hud.planText.text = T('Обслужено  ') + state.served + ' / ' + state.goal;
 
     var cx = HUD_COMBO_X, segs = 4, sw = HUD_SEG_W, gap = 5;
     hud.comboBar.clear();
@@ -2885,7 +2900,7 @@
       hud.comboBar.roundRect(cx + i * (sw + gap), by, sw, bh, 4)
         .stroke({ width: 2, color: C.steel, alpha: on ? 0.9 : 0.45 });
     }
-    hud.comboText.text = state.combo > 0 ? '×' + comboMult().toFixed(1) : 'комбо';
+    hud.comboText.text = state.combo > 0 ? '×' + comboMult().toFixed(1) : T('комбо');
     hud.comboText.style.fill = state.combo > 0 ? C.gold : C.hudInkSoft;
 
     // «жизни»: сколько покупателей ещё можно упустить
@@ -2899,7 +2914,7 @@
 
     if (state.saleProduct) {
       hud.sale.visible = true;
-      hud.sale.text = 'Акция дня: ' + productById(state.saleProduct).name + ' ×2';
+      hud.sale.text = T('Акция дня: ') + T(productById(state.saleProduct).name) + ' ×2';
     } else {
       hud.sale.visible = false;
     }
@@ -3059,7 +3074,7 @@
     if (fx.perfect && fx.combo >= 2) comboSticker(fx.mult);
     sfx(fx.perfect ? 'sale' : 'wrong', fx.combo);
 
-    var note = fx.order ? 'заказ!' : (fx.perfect ? '×' + fx.mult.toFixed(1) : 'не своя зона');
+    var note = fx.order ? T('заказ!') : (fx.perfect ? '×' + fx.mult.toFixed(1) : T('не своя зона'));
     floatText(cx, cy - trayH() / 2 + 20, '+' + money(fx.gain) + '  ' + note,
       fx.perfect || fx.order ? C.green : C.red);
     spawnCoins(cx, cy, fx.perfect ? 8 : 4);
@@ -3096,7 +3111,7 @@
     orderServedFx();
     if (state.combo >= 2) comboSticker(mult);
     var cx = PANEL_X + PANEL_W / 2, cy = trayPanelY() - 24;
-    floatText(cx, cy, '+' + money(gain) + '  заказ!', C.green);
+    floatText(cx, cy, '+' + money(gain) + T('  заказ!'), C.green);
     spawnCoins(cx, cy, 8);
     confetti(cx, cy);
     sfx('sale', state.combo);
@@ -3109,7 +3124,7 @@
     g.roundRect(-140, -34, 280, 68, 20).fill(C.green);
     g.roundRect(-140, -34, 280, 68, 20).stroke({ width: 5, color: C.ink, alpha: 1 });
     box.addChild(g);
-    var t = label('ЗАКАЗ ГОТОВ!', 24, 0xFFFFFF, '800');
+    var t = label(T('ЗАКАЗ ГОТОВ!'), 24, 0xFFFFFF, '800');
     t.anchor.set(0.5); t.x = 24;
     box.addChild(t);
     var face = personPortrait(20, state.lastFace || 0, 'happy');
@@ -3166,7 +3181,7 @@
     g.roundRect(-96, -30, 192, 60, 18).fill(C.gold);
     g.roundRect(-96, -30, 192, 60, 18).stroke({ width: 5, color: C.ink, alpha: 1 });
     box.addChild(g);
-    var t = label('КОМБО ×' + mult.toFixed(1), 25, 0xFFFFFF, '800');
+    var t = label(T('КОМБО ×') + mult.toFixed(1), 25, 0xFFFFFF, '800');
     t.anchor.set(0.5);
     box.addChild(t);
     box.x = W / 2; box.y = trayTop() + 40;
@@ -3363,7 +3378,7 @@
     panel.roundRect(px, py, pw, ph, 18).stroke({ width: 4, color: C.steelDark });
     overlay.addChild(panel);
 
-    var title = label('Ваш магазин', 27, 0xFFFFFF, '800');
+    var title = label(T('Ваш магазин'), 27, 0xFFFFFF, '800');
     title.anchor.set(0, 0.5); title.x = px + 24; title.y = py + 34;
     overlay.addChild(title);
 
@@ -3390,11 +3405,11 @@
       icon.x = x + 21; icon.y = y + 19;
       overlay.addChild(icon);
 
-      var name = label(u.name, 17, C.ink, '800');
+      var name = label(T(u.name), 17, C.ink, '800');
       name.x = x + 80; name.y = y + 16;
       overlay.addChild(name);
 
-      var eff = labelWrap(lvl > 0 ? u.effect(lvl) : u.hint, 12,
+      var eff = labelWrap(lvl > 0 ? u.effect(lvl) : T(u.hint), 12,
         lvl > 0 ? C.green : C.inkSoft, '600', cw - 92);
       eff.x = x + 80; eff.y = y + 40;
       overlay.addChild(eff);
@@ -3407,7 +3422,7 @@
       }
 
       if (price == null) {
-        var maxed = label('Максимум', 15, C.green, '800');
+        var maxed = label(T('Максимум'), 15, C.green, '800');
         maxed.anchor.set(1, 0.5); maxed.x = x + cw - 18; maxed.y = y + ch - 22;
         overlay.addChild(maxed);
       } else {
@@ -3419,20 +3434,24 @@
 
     var next = meta.shiftIdx;
     overlay.addChild(button(px + pw / 2 - 190, py + ph - 90, 380, 58,
-      'Открыть смену ' + (next + 1), null, true, function () {
+      T('Открыть смену ') + (next + 1), null, true, function () {
         hideOverlay();
         startShift(next);
         rebuildBoard();
         render();
       }));
 
-    var journal = label('журнал плейтеста', 14, C.inkSoft, '600');
+    // Журнал и сброс прогресса — инструменты плейтеста. Для игрока на
+    // площадке это лишний отладочный интерфейс, а он же первая причина
+    // отказов на модерации.
+    if (PLAYTEST) {
+    var journal = label(T('журнал плейтеста'), 14, C.inkSoft, '600');
     journal.anchor.set(0, 0.5); journal.x = px + 24; journal.y = py + ph - 16;
     journal.eventMode = 'static'; journal.cursor = 'pointer';
     journal.on('pointertap', showLogPanel);
     overlay.addChild(journal);
 
-    var reset = label('сбросить прогресс', 14, C.inkSoft, '600');
+    var reset = label(T('сбросить прогресс'), 14, C.inkSoft, '600');
     reset.anchor.set(1, 0.5); reset.x = px + pw - 24; reset.y = py + ph - 16;
     reset.eventMode = 'static'; reset.cursor = 'pointer';
     reset.on('pointertap', function () {
@@ -3443,6 +3462,7 @@
       showShop();
     });
     overlay.addChild(reset);
+    }                                  // конец блока PLAYTEST
   }
 
   /* ---------------------------------------------------------------- итоги */
@@ -3471,17 +3491,17 @@
     panel.roundRect(px, py, pw, ph, 18).stroke({ width: 5, color: C.ink, alpha: 0.9 });
     overlay.addChild(panel);
 
-    var title = label(won ? 'Смена закрыта!' : 'Смена сорвана', 30, 0xFFFFFF, '800');
+    var title = label(T(won ? 'Смена закрыта!' : 'Смена сорвана'), 30, 0xFFFFFF, '800');
     title.anchor.set(0.5); title.x = W / 2; title.y = py + 37;
     overlay.addChild(title);
 
     var rows = [
-      ['Выручка', money(state.revenue)],
-      ['Обслужено', state.served + ' / ' + state.goal],
-      ['Ушли не дождавшись', String(state.lost)],
-      ['Списано просрочки', state.spoiled + ' шт · ' + money(state.writeOff)],
-      ['Лучшее комбо', '×' + Math.min(1 + 0.5 * bestCombo, COMBO_MAX_MULT).toFixed(1)],
-      ['Смен подряд', String(streak)]
+      [T('Выручка'), money(state.revenue)],
+      [T('Обслужено'), state.served + ' / ' + state.goal],
+      [T('Ушли не дождавшись'), String(state.lost)],
+      [T('Списано просрочки'), state.spoiled + T(' шт · ') + money(state.writeOff)],
+      [T('Лучшее комбо'), '×' + Math.min(1 + 0.5 * bestCombo, COMBO_MAX_MULT).toFixed(1)],
+      [T('Смен подряд'), String(streak)]
     ];
     rows.forEach(function (r, i) {
       var y = py + 104 + i * 42;
@@ -3505,7 +3525,7 @@
     if (won) {
       if (adRow) {
         overlay.addChild(button(px + 30, by - 78, pw - 60, 66,
-          'Удвоить выручку', 'за просмотр рекламы', true, function () {
+          T('Удвоить выручку'), T('за просмотр рекламы'), true, function () {
             watchAd(function () {
               // Выручка уже ушла в кассу в finish(), поэтому доплачиваем
               // второй такой же суммой, а не пересчитываем заново.
@@ -3521,11 +3541,11 @@
           }));
       }
       overlay.addChild(button(px + 30, by, pw - 60, 66,
-        'В магазин  ·  ' + money(state.revenue), 'выручка ушла в кассу', true, showShop));
+        T('В магазин  ·  ') + money(state.revenue), T('выручка ушла в кассу'), true, showShop));
     } else {
       if (adRow) {
         overlay.addChild(button(px + 30, by - 78, pw - 60, 66,
-          'Переиграть с бустерами', '+2 к каждому за просмотр рекламы', true, function () {
+          T('Переиграть с бустерами'), T('+2 к каждому за просмотр рекламы'), true, function () {
             watchAd(function () {
               adBoosters = 2;
               logEvent('ad_reward', { kind: 'boosters' });
@@ -3533,8 +3553,8 @@
             });
           }));
       }
-      overlay.addChild(button(px + 30, by, (pw - 76) / 2, 66, 'Переиграть', null, true, retryShift));
-      overlay.addChild(button(px + 46 + (pw - 76) / 2, by, (pw - 76) / 2, 66, 'В магазин', null, true, showShop));
+      overlay.addChild(button(px + 30, by, (pw - 76) / 2, 66, T('Переиграть'), null, true, retryShift));
+      overlay.addChild(button(px + 46 + (pw - 76) / 2, by, (pw - 76) / 2, 66, T('В магазин'), null, true, showShop));
     }
   }
 
