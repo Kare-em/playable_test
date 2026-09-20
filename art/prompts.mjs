@@ -104,13 +104,13 @@ for (const [sid, shop] of Object.entries(SHOPS)) {
 // один, анфас и с запасом по краям — иначе в слоте стеллажа выйдет пятно.
 // Тень на фоне запрещена отдельно: фон потом выбивается в прозрачность,
 // и лежащая на нём тень оставила бы грязный ореол по контуру.
-const GOODS = {
+export const GOODS = {
   milk: 'tall gable-top paper carton of milk, white with a blue band',
   cheese: 'wedge of firm yellow cheese with a few round holes and a natural rind',
   yogurt: 'small plastic yogurt cup with a foil lid and a berry-coloured wrapper',
   butter: 'rectangular block of butter, half wrapped in printed foil paper',
   curd: 'brick of Russian tvorog curd in a simple folded paper wrapper',
-  sourcream: 'small round plastic tub of smetana sour cream with a green lid',
+  sourcream: 'small round plastic tub of sour cream with a green lid, completely blank unbranded packaging with no writing, no lettering and no logo anywhere on it',
   kefir: 'plastic bottle of kefir, white drink behind a paper label, green cap',
   icecream: 'ice cream in a waffle cup with a paper sleeve, soft white swirl on top',
   bread: 'loaf of bread with a glossy golden crust and slashed top',

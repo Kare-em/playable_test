@@ -1,0 +1,326 @@
+{
+  "product-milk": {
+    "file": "product-milk.webp",
+    "sheet": 1,
+    "cell": 1,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "151x256",
+    "bytes": 7868,
+    "createdAt": "2026-09-20T18:15:39.484Z"
+  },
+  "product-cheese": {
+    "file": "product-cheese.webp",
+    "sheet": 1,
+    "cell": 2,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x229",
+    "bytes": 11338,
+    "createdAt": "2026-09-20T18:15:39.485Z"
+  },
+  "product-yogurt": {
+    "file": "product-yogurt.webp",
+    "sheet": 1,
+    "cell": 3,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "250x256",
+    "bytes": 14406,
+    "createdAt": "2026-09-20T18:15:39.485Z"
+  },
+  "product-butter": {
+    "file": "product-butter.webp",
+    "sheet": 1,
+    "cell": 4,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x163",
+    "bytes": 10780,
+    "createdAt": "2026-09-20T18:15:39.486Z"
+  },
+  "product-curd": {
+    "file": "product-curd.webp",
+    "sheet": 1,
+    "cell": 5,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x192",
+    "bytes": 7746,
+    "createdAt": "2026-09-20T18:15:39.486Z"
+  },
+  "product-sourcream": {
+    "file": "product-sourcream.webp",
+    "sheet": 1,
+    "cell": 1,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x246",
+    "bytes": 11648,
+    "createdAt": "2026-09-20T18:19:00.821Z"
+  },
+  "product-kefir": {
+    "file": "product-kefir.webp",
+    "sheet": 1,
+    "cell": 7,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "119x256",
+    "bytes": 6756,
+    "createdAt": "2026-09-20T18:15:39.487Z"
+  },
+  "product-icecream": {
+    "file": "product-icecream.webp",
+    "sheet": 1,
+    "cell": 8,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "140x256",
+    "bytes": 10208,
+    "createdAt": "2026-09-20T18:15:39.488Z"
+  },
+  "product-bread": {
+    "file": "product-bread.webp",
+    "sheet": 2,
+    "cell": 1,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x221",
+    "bytes": 10272,
+    "createdAt": "2026-09-20T18:16:37.103Z"
+  },
+  "product-grain": {
+    "file": "product-grain.webp",
+    "sheet": 2,
+    "cell": 2,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "202x256",
+    "bytes": 11416,
+    "createdAt": "2026-09-20T18:16:37.104Z"
+  },
+  "product-cookie": {
+    "file": "product-cookie.webp",
+    "sheet": 2,
+    "cell": 3,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "221x223",
+    "bytes": 14036,
+    "createdAt": "2026-09-20T18:16:37.105Z"
+  },
+  "product-can": {
+    "file": "product-can.webp",
+    "sheet": 2,
+    "cell": 4,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "199x256",
+    "bytes": 10332,
+    "createdAt": "2026-09-20T18:16:37.106Z"
+  },
+  "product-pasta": {
+    "file": "product-pasta.webp",
+    "sheet": 2,
+    "cell": 5,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "203x256",
+    "bytes": 14128,
+    "createdAt": "2026-09-20T18:16:37.106Z"
+  },
+  "product-tea": {
+    "file": "product-tea.webp",
+    "sheet": 2,
+    "cell": 6,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "232x252",
+    "bytes": 9906,
+    "createdAt": "2026-09-20T18:16:37.107Z"
+  },
+  "product-coffee": {
+    "file": "product-coffee.webp",
+    "sheet": 2,
+    "cell": 7,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "174x256",
+    "bytes": 9766,
+    "createdAt": "2026-09-20T18:16:37.107Z"
+  },
+  "product-sugar": {
+    "file": "product-sugar.webp",
+    "sheet": 2,
+    "cell": 8,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "237x256",
+    "bytes": 9888,
+    "createdAt": "2026-09-20T18:16:37.108Z"
+  },
+  "product-apple": {
+    "file": "product-apple.webp",
+    "sheet": 3,
+    "cell": 1,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "205x256",
+    "bytes": 11482,
+    "createdAt": "2026-09-20T18:17:05.295Z"
+  },
+  "product-carrot": {
+    "file": "product-carrot.webp",
+    "sheet": 3,
+    "cell": 2,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "255x256",
+    "bytes": 13812,
+    "createdAt": "2026-09-20T18:17:05.296Z"
+  },
+  "product-tomato": {
+    "file": "product-tomato.webp",
+    "sheet": 3,
+    "cell": 3,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "246x256",
+    "bytes": 12826,
+    "createdAt": "2026-09-20T18:17:05.297Z"
+  },
+  "product-grape": {
+    "file": "product-grape.webp",
+    "sheet": 3,
+    "cell": 4,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x253",
+    "bytes": 13696,
+    "createdAt": "2026-09-20T18:17:05.298Z"
+  },
+  "product-banana": {
+    "file": "product-banana.webp",
+    "sheet": 3,
+    "cell": 5,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x234",
+    "bytes": 11230,
+    "createdAt": "2026-09-20T18:17:05.298Z"
+  },
+  "product-cucumber": {
+    "file": "product-cucumber.webp",
+    "sheet": 3,
+    "cell": 6,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "243x256",
+    "bytes": 9932,
+    "createdAt": "2026-09-20T18:17:05.299Z"
+  },
+  "product-potato": {
+    "file": "product-potato.webp",
+    "sheet": 3,
+    "cell": 7,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x242",
+    "bytes": 10708,
+    "createdAt": "2026-09-20T18:17:05.300Z"
+  },
+  "product-lemon": {
+    "file": "product-lemon.webp",
+    "sheet": 3,
+    "cell": 8,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "232x256",
+    "bytes": 13570,
+    "createdAt": "2026-09-20T18:17:05.300Z"
+  },
+  "product-sausage": {
+    "file": "product-sausage.webp",
+    "sheet": 4,
+    "cell": 1,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x223",
+    "bytes": 11466,
+    "createdAt": "2026-09-20T18:17:30.344Z"
+  },
+  "product-chicken": {
+    "file": "product-chicken.webp",
+    "sheet": 4,
+    "cell": 2,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x206",
+    "bytes": 11572,
+    "createdAt": "2026-09-20T18:17:30.344Z"
+  },
+  "product-steak": {
+    "file": "product-steak.webp",
+    "sheet": 4,
+    "cell": 3,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x201",
+    "bytes": 12818,
+    "createdAt": "2026-09-20T18:17:30.345Z"
+  },
+  "product-wieners": {
+    "file": "product-wieners.webp",
+    "sheet": 4,
+    "cell": 4,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x221",
+    "bytes": 10938,
+    "createdAt": "2026-09-20T18:17:30.345Z"
+  },
+  "product-mince": {
+    "file": "product-mince.webp",
+    "sheet": 4,
+    "cell": 5,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x183",
+    "bytes": 12988,
+    "createdAt": "2026-09-20T18:17:30.346Z"
+  },
+  "product-fish": {
+    "file": "product-fish.webp",
+    "sheet": 4,
+    "cell": 6,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x186",
+    "bytes": 10296,
+    "createdAt": "2026-09-20T18:17:30.346Z"
+  },
+  "product-soap": {
+    "file": "product-soap.webp",
+    "sheet": 4,
+    "cell": 7,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x196",
+    "bytes": 10006,
+    "createdAt": "2026-09-20T18:17:30.346Z"
+  },
+  "product-powder": {
+    "file": "product-powder.webp",
+    "sheet": 4,
+    "cell": 8,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "216x256",
+    "bytes": 8852,
+    "createdAt": "2026-09-20T18:17:30.347Z"
+  },
+  "product-spray": {
+    "file": "product-spray.webp",
+    "sheet": 5,
+    "cell": 1,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "135x256",
+    "bytes": 10292,
+    "createdAt": "2026-09-20T18:18:10.912Z"
+  },
+  "product-sponge": {
+    "file": "product-sponge.webp",
+    "sheet": 5,
+    "cell": 2,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "256x197",
+    "bytes": 11456,
+    "createdAt": "2026-09-20T18:18:10.913Z"
+  },
+  "product-paper": {
+    "file": "product-paper.webp",
+    "sheet": 5,
+    "cell": 3,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "247x256",
+    "bytes": 9544,
+    "createdAt": "2026-09-20T18:18:10.913Z"
+  },
+  "product-gloves": {
+    "file": "product-gloves.webp",
+    "sheet": 5,
+    "cell": 4,
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "243x256",
+    "bytes": 14422,
+    "createdAt": "2026-09-20T18:18:10.914Z"
+  }
+}

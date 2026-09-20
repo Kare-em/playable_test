@@ -4,3 +4,4 @@ dist/
 # оригиналы генерации: по 2 МБ на файл, в игру идут ужатые из art/ready/
 art/raw/*
 !art/raw/manifest.json
+!art/raw/products.json
