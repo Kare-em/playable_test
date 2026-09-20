@@ -611,6 +611,7 @@
     bestCombo = 0;
     shownRevenue = 0;
     hiddenSlots = {};
+    queueSpots = {}; queueGen = {};
     for (var i = 0; i < queueSize(); i++) spawnCustomer();
     pullDemanded();
     shiftStat = { started: Date.now(), moves: 0, home: 0, denyFull: 0, denyZone: 0, spoiled: 0, writeOff: 0 };
@@ -723,7 +724,7 @@
     var used = state.customers.map(function (q) { return q.face; });
     var face = Math.floor(state.rnd() * PEOPLE.length);
     for (var t = 0; t < PEOPLE.length && used.indexOf(face) !== -1; t++) face = (face + 1) % PEOPLE.length;
-    var c = { order: order, patience: patience, max: patience, face: face,
+    var c = { uid: ++customerSeq, order: order, patience: patience, max: patience, face: face,
               got: {}, value: 0, cheer: 0 };
     state.customers.push(c);
     return c;
@@ -892,6 +893,7 @@
   function serveCustomer(c) {
     var i = state.customers.indexOf(c);
     if (i === -1) return null;
+    queueCardOut(i);                     // карточка уходит сама, до перестроения очереди
     state.customers.splice(i, 1);
     state.lastFace = c.face;
     state.served += 1;
@@ -1403,6 +1405,7 @@
   var toastBox, overlay, TEXTURES = {};
   var hiddenSlots = {}, pendingSaleFx = null, shownRevenue = 0, selectedNode = null, signNode = null;
   var pendingPickups = [];       // перелёты к покупателям, ждущие посадки выложенного товара
+  var queueSpots = {}, queueGen = {}, customerSeq = 0;   // где сейчас карточка очереди и чья анимация свежее
 
   function label(text, size, color, weight) {
     return new PIXI.Text({
@@ -2579,6 +2582,12 @@
   // Очередь покупателей: кто, что просит и сколько ещё подождёт.
   function renderQueue() {
     var qw = queueW(), qh = queueH();
+    // забываем ушедших, иначе за смену карты позиций разрастаются
+    var live = {};
+    state.customers.forEach(function (c) { if (c.uid) live[c.uid] = 1; });
+    Object.keys(queueSpots).forEach(function (k) { if (!live[k]) delete queueSpots[k]; });
+    Object.keys(queueGen).forEach(function (k) { if (!live[k]) delete queueGen[k]; });
+
     for (var i = 0; i < queueSize(); i++) {
       var c = state.customers[i];
       var box = new PIXI.Container();
@@ -2678,6 +2687,14 @@
       else if (mood === 'angry') box.addChild(emotionBubble(82, 18, 'angry'));
       else if (mood === 'worry') box.addChild(emotionBubble(82, 18, 'worry'));
 
+      // покупатель, сохранённый до появления uid, получает его здесь
+      if (!c.uid) c.uid = ++customerSeq;
+      var tx = queueX(i), ty = queueY(i), prev = queueSpots[c.uid];
+      if (!prev) queueCardIn(box, c.uid, qw, qh, tx, ty);
+      else if (Math.abs(prev.x - tx) > 0.5 || Math.abs(prev.y - ty) > 0.5) {
+        queueCardMove(box, c.uid, qw, qh, prev.x, prev.y, tx, ty);
+      } else queueSpots[c.uid] = { x: tx, y: ty };
+
       layers.queue.addChild(box);
     }
   }
@@ -2774,6 +2791,66 @@
   function anim(dur, step, done) { anims.push({ t: 0, d: dur, step: step, done: done }); }
   function easeOut(p) { return 1 - Math.pow(1 - p, 3); }
   function easeBack(p) { var c = 1.7; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); }
+
+  /* Обновление очереди после выполненного заказа. Раньше это был скачок:
+     обслуженный исчезал, остальные мгновенно съезжали на его место, новый
+     возникал из ниоткуда. Теперь карточка уходит сама, соседи переезжают,
+     новичок проявляется.
+
+     Позиция пишется в queueSpots на каждом шаге, поэтому перерисовка посреди
+     анимации подхватывает карточку там, где она сейчас, а не дёргает обратно
+     в начало. Номер поколения не даёт анимации от предыдущей перерисовки
+     перебивать свежую: узлы очереди пересоздаются на каждый render, и без
+     этого две анимации одной карточки писали бы позицию наперегонки. */
+  function queueCardOut(i) {
+    if (!layers.queue) return;
+    var node = layers.queue.children[i];
+    if (!node) return;
+    var qw = queueW(), qh = queueH();
+    layers.queue.removeChild(node);
+    layers.fx.addChild(node);            // слой очереди сейчас перестроится — уводим узел
+    node.pivot.set(qw / 2, qh / 2);
+    node.x += qw / 2; node.y += qh / 2;
+    anim(300, function (p) {
+      var e = easeOut(p);
+      node.alpha = 1 - e;
+      node.scale.set(1 + 0.1 * e);
+      node.y -= 0.7;
+    }, function () { node.destroy(); });
+  }
+
+  function queueCardIn(box, uid, w, h, tx, ty) {
+    var gen = queueGen[uid] = (queueGen[uid] || 0) + 1;
+    box.pivot.set(w / 2, h / 2);
+    box.x = tx + w / 2; box.y = ty + h / 2;
+    box.alpha = 0;
+    queueSpots[uid] = { x: tx, y: ty };
+    anim(280, function (p) {
+      if (queueGen[uid] !== gen) return;
+      box.alpha = easeOut(p);
+      box.scale.set(0.9 + 0.1 * easeBack(Math.min(p * 1.2, 1)));
+    }, function () {
+      if (queueGen[uid] !== gen) return;
+      box.alpha = 1; box.scale.set(1);
+    });
+  }
+
+  function queueCardMove(box, uid, w, h, x0, y0, tx, ty) {
+    var gen = queueGen[uid] = (queueGen[uid] || 0) + 1;
+    box.pivot.set(w / 2, h / 2);
+    box.x = x0 + w / 2; box.y = y0 + h / 2;
+    anim(240, function (p) {
+      if (queueGen[uid] !== gen) return;
+      var e = easeOut(p);
+      var x = x0 + (tx - x0) * e, y = y0 + (ty - y0) * e;
+      box.x = x + w / 2; box.y = y + h / 2;
+      queueSpots[uid] = { x: x, y: y };
+    }, function () {
+      if (queueGen[uid] !== gen) return;
+      box.x = tx + w / 2; box.y = ty + h / 2;
+      queueSpots[uid] = { x: tx, y: ty };
+    });
+  }
 
   function squashIn(node, w, h) {
     node.pivot.set(w / 2, h / 2);
