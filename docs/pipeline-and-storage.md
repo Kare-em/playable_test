@@ -30,6 +30,8 @@ playable_test/
 
 ## 2. Пайплайн графики
 
+Что именно нужно нарисовать и чем — [список ассетов](./art-assets.md).
+
 ```
 art/products.mjs ──► tools/build-art.mjs ──► prototype/src/art.js   (data-URI, идёт в билд)
                  └─► tools/render-art.mjs ─► assets/products/*.png  (карточка игры, скриншоты, пресс)
