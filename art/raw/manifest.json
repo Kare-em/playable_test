@@ -3,64 +3,154 @@
     "file": "bust-granny.jpg",
     "model": "google/gemini-3.1-flash-image-preview",
     "size": "1024x1024",
+    "actual": "1024x1024",
     "group": "character",
     "prio": "P0",
-    "promptHash": "479822f06e8c6995",
-    "bytes": 2131180,
-    "createdAt": "2026-09-20T03:00:16.724Z",
-    "ready": {
-      "file": "bust-granny.webp",
-      "size": "512x512",
-      "bytes": 19472
-    },
-    "actual": "2048x2048"
+    "promptHash": "662bdfb4243ae4e3",
+    "bytes": 508692,
+    "createdAt": "2026-09-20T17:53:35.619Z"
   },
   "bust-courier": {
     "file": "bust-courier.jpg",
     "model": "google/gemini-3.1-flash-image-preview",
     "size": "1024x1024",
+    "actual": "2048x2048",
     "group": "character",
     "prio": "P0",
-    "promptHash": "434f7bc56fc087f5",
-    "bytes": 1810565,
-    "createdAt": "2026-09-20T03:00:51.821Z",
-    "ready": {
-      "file": "bust-courier.webp",
-      "size": "512x512",
-      "bytes": 16580
-    },
-    "actual": "2048x2048"
+    "promptHash": "78a5041777bef73d",
+    "bytes": 1568860,
+    "createdAt": "2026-09-20T17:54:02.641Z"
   },
   "bust-schoolboy": {
     "file": "bust-schoolboy.jpg",
     "model": "google/gemini-3.1-flash-image-preview",
     "size": "1024x1024",
+    "actual": "2048x2048",
     "group": "character",
     "prio": "P0",
-    "promptHash": "c0d1504c1fd5fac1",
-    "bytes": 1904755,
-    "createdAt": "2026-09-20T03:01:21.658Z",
-    "ready": {
-      "file": "bust-schoolboy.webp",
-      "size": "512x512",
-      "bytes": 12868
-    },
-    "actual": "2048x2048"
+    "promptHash": "a417f4fcfdd896c8",
+    "bytes": 1972564,
+    "createdAt": "2026-09-20T17:54:26.324Z"
   },
   "interior-shop1-s0": {
     "file": "interior-shop1-s0.jpg",
     "model": "google/gemini-3.1-flash-image-preview",
     "size": "1024x1024",
+    "actual": "2048x2048",
     "group": "interior",
     "prio": "P0",
-    "promptHash": "7edb714cd6b8fa05",
-    "bytes": 1796033,
-    "createdAt": "2026-09-20T03:01:53.803Z",
-    "ready": {
-      "file": "interior-shop1-s0.webp",
-      "size": "1440x1440",
-      "bytes": 89250
-    },
-    "actual": "2048x2048"
+    "promptHash": "748a667aec7f954f",
+    "bytes": 1923397,
+    "createdAt": "2026-09-20T17:55:20.545Z"
+  },
+  "bust-mom": {
+    "file": "bust-mom.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1024x1024",
+    "actual": "2048x2048",
+    "group": "character",
+    "prio": "P1",
+    "promptHash": "f9495b00cc947088",
+    "bytes": 1536799,
+    "createdAt": "2026-09-20T17:56:02.497Z"
+  },
+  "bust-taxi": {
+    "file": "bust-taxi.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1024x1024",
+    "actual": "2048x2048",
+    "group": "character",
+    "prio": "P1",
+    "promptHash": "ac118f2600438f43",
+    "bytes": 1721056,
+    "createdAt": "2026-09-20T17:56:26.300Z"
+  },
+  "bust-dacha": {
+    "file": "bust-dacha.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1024x1024",
+    "actual": "2048x2048",
+    "group": "character",
+    "prio": "P1",
+    "promptHash": "6dad5223c525550b",
+    "bytes": 1644123,
+    "createdAt": "2026-09-20T17:56:52.289Z"
+  },
+  "bust-student": {
+    "file": "bust-student.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1024x1024",
+    "actual": "2048x2048",
+    "group": "character",
+    "prio": "P1",
+    "promptHash": "c6e4e913771f4c58",
+    "bytes": 1513011,
+    "createdAt": "2026-09-20T17:57:21.643Z"
+  },
+  "bust-pensioner": {
+    "file": "bust-pensioner.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1024x1024",
+    "actual": "2048x2048",
+    "group": "character",
+    "prio": "P1",
+    "promptHash": "ea252f88ec143051",
+    "bytes": 1794794,
+    "createdAt": "2026-09-20T17:57:58.568Z"
+  },
+  "bust-handyman": {
+    "file": "bust-handyman.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1024x1024",
+    "actual": "2048x2048",
+    "group": "character",
+    "prio": "P1",
+    "promptHash": "f16aa0a0db4d0985",
+    "bytes": 2039275,
+    "createdAt": "2026-09-20T17:58:24.240Z"
+  },
+  "bust-neighbor": {
+    "file": "bust-neighbor.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1024x1024",
+    "actual": "2048x2048",
+    "group": "character",
+    "prio": "P1",
+    "promptHash": "fb87e3c606939122",
+    "bytes": 1853807,
+    "createdAt": "2026-09-20T17:58:50.127Z"
+  },
+  "full-granny": {
+    "file": "full-granny.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1024x1536",
+    "actual": "1696x2528",
+    "group": "character",
+    "prio": "P1",
+    "promptHash": "09c5c5a4fd2b137f",
+    "bytes": 1964648,
+    "createdAt": "2026-09-20T17:59:16.287Z"
+  },
+  "full-courier": {
+    "file": "full-courier.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1024x1536",
+    "actual": "1696x2528",
+    "group": "character",
+    "prio": "P1",
+    "promptHash": "d0d33bd0c0d5a07f",
+    "bytes": 1981670,
+    "createdAt": "2026-09-20T17:59:42.240Z"
+  },
+  "full-schoolboy": {
+    "file": "full-schoolboy.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1024x1536",
+    "actual": "1696x2528",
+    "group": "character",
+    "prio": "P1",
+    "promptHash": "799e12c9d814141f",
+    "bytes": 1941392,
+    "createdAt": "2026-09-20T18:00:08.825Z"
   }
 }
