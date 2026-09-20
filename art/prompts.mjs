@@ -99,6 +99,58 @@ for (const [sid, shop] of Object.entries(SHOPS)) {
   add(`bg-${sid}`, `blurred cozy background of a ${shop} seen behind a shelf, soft depth, no people, vertical composition`,
     '1024x1536', 'background', 'P1');
 }
+// ------------------------------------------------------------------- товары
+// A1: иконки товара на полке. Живут на сетке ~100x100, поэтому предмет строго
+// один, анфас и с запасом по краям — иначе в слоте стеллажа выйдет пятно.
+// Тень на фоне запрещена отдельно: фон потом выбивается в прозрачность,
+// и лежащая на нём тень оставила бы грязный ореол по контуру.
+const GOODS = {
+  milk: 'tall gable-top paper carton of milk, white with a blue band',
+  cheese: 'wedge of firm yellow cheese with a few round holes and a natural rind',
+  yogurt: 'small plastic yogurt cup with a foil lid and a berry-coloured wrapper',
+  butter: 'rectangular block of butter, half wrapped in printed foil paper',
+  curd: 'brick of Russian tvorog curd in a simple folded paper wrapper',
+  sourcream: 'small round plastic tub of smetana sour cream with a green lid',
+  kefir: 'plastic bottle of kefir, white drink behind a paper label, green cap',
+  icecream: 'ice cream in a waffle cup with a paper sleeve, soft white swirl on top',
+  bread: 'loaf of bread with a glossy golden crust and slashed top',
+  grain: 'paper bag of buckwheat groats with a clear window showing the grain',
+  cookie: 'round butter biscuit with chocolate chips and a crumbly edge',
+  can: 'tin can of preserves with a plain paper label and a ring pull',
+  pasta: 'clear plastic packet of pasta with the dry penne visible through it',
+  tea: 'small cardboard box of black tea with a modest leaf motif',
+  coffee: 'glass jar of instant coffee with a metal screw lid',
+  sugar: 'paper bag of sugar with a folded top and a few crystals spilled at the base',
+  apple: 'glossy red apple with a short stem and one green leaf',
+  carrot: 'fresh orange carrot with bright green tops',
+  tomato: 'ripe red tomato with a green calyx and a soft highlight',
+  grape: 'bunch of dark purple grapes with one green leaf',
+  banana: 'bunch of three ripe yellow bananas joined at the stem',
+  cucumber: 'fresh green cucumber with slightly bumpy skin',
+  potato: 'raw potato with earthy brown skin and shallow eyes',
+  lemon: 'bright yellow lemon with a textured peel and one green leaf',
+  sausage: 'stick of smoked sausage with a tied end and a paper band',
+  chicken: 'plump whole raw chicken with pale skin',
+  steak: 'thick raw beef steak with visible marbling',
+  wieners: 'pair of pink wieners linked at one end',
+  mince: 'portion of raw minced meat on a small foam tray under clear film',
+  fish: 'whole fresh fish with silver scales and a single fin raised',
+  soap: 'bar of soap with a pressed pattern, partly in a paper wrapper',
+  powder: 'cardboard box of laundry powder with a simple colour band',
+  spray: 'plastic spray bottle of cleaner with a trigger head',
+  sponge: 'kitchen sponge, yellow with a green scouring side',
+  paper: 'roll of toilet paper, white, with the end slightly unrolled',
+  gloves: 'pair of yellow rubber household gloves'
+};
+for (const [id, what] of Object.entries(GOODS)) {
+  add(`product-${id}`,
+    `a single ${what}, one object only, upright, straight-on front view, filling most of the frame. `
+    + `${CUTOUT}. The background is a perfectly uniform flat cream field with no gradient, no vignette `
+    + `and no pattern. NO drop shadow and NO contact shadow anywhere on the background — the object does `
+    + `not touch or darken the background.`,
+    '1024x1024', 'product', 'P0');
+}
+
 // D5 — иконки IAP-паков
 add('iap-starter', 'gift box overflowing with coins and three booster jars, celebratory', '1024x1024', 'ui', 'P1');
 add('iap-noads', 'crossed-out television screen icon on a shield, friendly not aggressive', '1024x1024', 'ui', 'P1');
