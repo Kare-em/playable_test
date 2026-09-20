@@ -1,0 +1,42 @@
+{
+  "bust-granny": {
+    "file": "bust-granny.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1024x1024",
+    "group": "character",
+    "prio": "P0",
+    "promptHash": "479822f06e8c6995",
+    "bytes": 2131180,
+    "createdAt": "2026-09-20T03:00:16.724Z"
+  },
+  "bust-courier": {
+    "file": "bust-courier.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1024x1024",
+    "group": "character",
+    "prio": "P0",
+    "promptHash": "434f7bc56fc087f5",
+    "bytes": 1810565,
+    "createdAt": "2026-09-20T03:00:51.821Z"
+  },
+  "bust-schoolboy": {
+    "file": "bust-schoolboy.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1024x1024",
+    "group": "character",
+    "prio": "P0",
+    "promptHash": "c0d1504c1fd5fac1",
+    "bytes": 1904755,
+    "createdAt": "2026-09-20T03:01:21.658Z"
+  },
+  "interior-shop1-s0": {
+    "file": "interior-shop1-s0.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1024x1024",
+    "group": "interior",
+    "prio": "P0",
+    "promptHash": "7edb714cd6b8fa05",
+    "bytes": 1796033,
+    "createdAt": "2026-09-20T03:01:53.803Z"
+  }
+}
