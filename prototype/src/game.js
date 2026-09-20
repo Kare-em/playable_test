@@ -796,9 +796,11 @@
         // номера слотов, и место в очереди уже другие.
         var qi = Math.max(0, state.customers.indexOf(c));
         pendingPickups.push({
-          to: { x: queueX(qi) + 30, y: queueY(qi) + queueH() / 2 - 24 },
+          // у покупателя товар исчезает в корзине заказа — там он мелкий
+          to: { x: queueX(qi) + 30, y: queueY(qi) + queueH() / 2 - 24, w: 34, h: 34 },
           from: taken.map(function (t) {
-            return { id: t.id, x: slotX(t.slot), y: slotY(t.slot) };
+            var sp = iconSpot(slotX(t.slot), slotY(t.slot), traySlotW(), trayH(), false);
+            return { id: t.id, x: sp.x, y: sp.y, w: sp.w, h: sp.h };
           })
         });
         compactTray();
@@ -939,7 +941,12 @@
       toast('В зоне «' + zoneById(zoneId).name + '» нет места'); shakeZone(zoneId); sfx('deny'); return false;
     }
 
-    var from = sel.from === 'belt' ? beltSlotPos(sel.index) : fridgeSlotPos(sel.index);
+    var fromBelt = sel.from === 'belt';
+    var srcPos = fromBelt ? beltSlotPos(sel.index) : fridgeSlotPos(sel.index);
+    var from = iconSpot(srcPos.x, srcPos.y,
+      fromBelt ? beltCellW() : fridgeSlotW(),
+      fromBelt ? BELT_H : FRIDGE_SLOT_H,
+      fromBelt);                       // на завозе у ячейки есть ценник, в холодильнике нет
 
     if (sel.from === 'belt') state.belt.splice(sel.index, 1);
     else state.fridge.splice(sel.index, 1);
@@ -963,7 +970,8 @@
     if (!sale) hiddenSlots[key] = true;
     render();
 
-    flyGhost(productById(productId), from, { x: slotX(slot), y: slotY(slot) }, function () {
+    flyGhost(productById(productId), from,
+      iconSpot(slotX(slot), slotY(slot), traySlotW(), trayH(), false), function () {
       delete hiddenSlots[key];
       sfx('place');
       runPickups();
@@ -1451,6 +1459,18 @@
     }));
   }
 
+  // Где внутри ячейки стоит иконка и в какую рамку она вписана. Один расчёт
+  // и для статичной отрисовки, и для точек перелёта: иначе предмет в полёте
+  // оказывается не того размера и не в том месте, что в ячейке.
+  function iconSpot(x, y, w, h, withPrice) {
+    return {
+      x: x + w / 2,
+      y: y + h * (withPrice ? 0.36 : 0.40),
+      w: w * (withPrice ? 0.88 : 0.94),
+      h: h * (withPrice ? 0.62 : 0.72)
+    };
+  }
+
   // boxW/boxH — рамка, в которую предмет должен поместиться целиком.
   // Растровые иконки обрезаны по контуру вплотную, без полей внутри картинки,
   // поэтому запас по краям задаёт вызывающий код, а не сам ассет.
@@ -1498,11 +1518,9 @@
     // На прилавке слот узкий и высокий, поэтому рамка прямоугольная: предмет
     // тянется по высоте, но не вылезает за ширину ячейки. Нижняя граница
     // рамки оставляет место тени, а в варианте с ценой — ещё и ценнику.
-    var iconY = opts.price ? h * 0.36 : h * 0.40;
-    var icon = productIcon(product,
-      w * (opts.price ? 0.88 : 0.94),
-      h * (opts.price ? 0.62 : 0.72));
-    icon.x = w / 2; icon.y = iconY;
+    var spot = iconSpot(0, 0, w, h, !!opts.price);
+    var icon = productIcon(product, spot.w, spot.h);
+    icon.x = spot.x; icon.y = spot.y;
     c.addChild(icon);
 
     if (opts.price) {
@@ -2766,19 +2784,42 @@
     }, function () { node.scale.set(1); });
   }
 
+  /* Перелёт предмета между двумя ячейками. from и to — результат iconSpot,
+     то есть центр иконки и её рамка в точке вылета и в точке прилёта.
+
+     Что здесь было не так раньше и что исправлено:
+     - летела целая карточка ячейки (productPiece) вместе с тенью, областью
+       нажатия и плашкой акции — теперь летит только сам товар;
+     - масштаб по X и по Y считался разными множителями (traySlotW/beltCellW
+       и trayH/BELT_H), поэтому предмет в полёте заметно плющило — теперь
+       множитель один на обе оси;
+     - размеры были жёстко привязаны к паре «завоз → прилавок», хотя тем же
+       перелётом товар уходит с прилавка к покупателю: он стартовал не в том
+       размере и тянулся не к тому;
+     - дуга задавалась случайными 90–120 px независимо от расстояния, из-за
+       чего короткий перенос делал размашистую петлю, а одинаковые действия
+       выглядели по-разному;
+     - длительность была одна на любой перелёт;
+     - предмет ещё и качался на ±0.12 радиана.  */
   function flyGhost(product, from, to, done) {
-    var w = beltCellW(), tw = traySlotW();
-    var ghost = productPiece(product, w, BELT_H, {});
+    var ghost = productIcon(product, from.w, from.h);
+    // productIcon уже задал спрайту масштаб под рамку — свой множитель
+    // накладываем поверх, а не вместо него
+    var bx = ghost.scale.x, by = ghost.scale.y;
     ghost.x = from.x; ghost.y = from.y;
     layers.fx.addChild(ghost);
-    var arc = 90 + Math.random() * 30;
-    var sx = tw / w, sy = trayH() / BELT_H;
-    anim(200, function (p) {
+
+    var dx = to.x - from.x, dy = to.y - from.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    var arc = Math.min(64, dist * 0.2);                       // дуга по расстоянию
+    var ms = Math.max(190, Math.min(340, 140 + dist * 0.5));  // и время тоже
+    var k = Math.min(to.w / from.w, to.h / from.h);
+    anim(ms, function (p) {
       var e = easeOut(p);
-      ghost.x = from.x + (to.x - from.x) * e;
-      ghost.y = from.y + (to.y - from.y) * e - Math.sin(p * Math.PI) * arc;
-      ghost.scale.set(1 + (sx - 1) * e, 1 + (sy - 1) * e);
-      ghost.rotation = Math.sin(p * Math.PI) * 0.12;
+      var s = 1 + (k - 1) * e;
+      ghost.x = from.x + dx * e;
+      ghost.y = from.y + dy * e - Math.sin(p * Math.PI) * arc;
+      ghost.scale.set(bx * s, by * s);
     }, function () { ghost.destroy(); if (done) done(); });
   }
 
@@ -2825,7 +2866,7 @@
     pendingPickups = [];
     list.forEach(function (p) {
       p.from.forEach(function (f) {
-        flyGhost(productById(f.id), { x: f.x, y: f.y }, p.to, function () {});
+        flyGhost(productById(f.id), f, p.to, function () {});
       });
     });
     if (list.length) sfx('select');
