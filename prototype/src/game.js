@@ -787,7 +787,7 @@
         state.fresh[slot] = 0;
         c.got[l.id] = (c.got[l.id] || 0) + 1;
         c.value += priceOf(productById(l.id));
-        taken.push({ slot: slot, id: l.id });
+        taken.push({ slot: slot, id: l.id, li: li });
         took = true;
       }
       if (taken.length) {
@@ -796,17 +796,20 @@
         // покупатель с собранным заказом уйдёт из очереди: после этого и
         // номера слотов, и место в очереди уже другие.
         var qi = Math.max(0, state.customers.indexOf(c));
+        var n = c.order.length;
         pendingPickups.push({
-          // у покупателя товар исчезает в корзине заказа — там он мелкий
-          to: { x: queueX(qi) + 30, y: queueY(qi) + queueH() / 2 - 24, w: 34, h: 34 },
-          from: taken.map(function (t) {
-            var sp = iconSpot(slotX(t.slot), slotY(t.slot), traySlotW(), trayH(), false);
-            return { id: t.id, x: sp.x, y: sp.y, w: sp.w, h: sp.h };
+          c: c,
+          done: orderDone(c),
+          hops: taken.map(function (t) {
+            // товар летит именно в свой значок в корзине заказа, а не
+            // в безликую точку у лица покупателя
+            return { id: t.id,
+                     from: iconSpot(slotX(t.slot), slotY(t.slot), traySlotW(), trayH(), false),
+                     to: orderIconSpot(qi, t.li, n) };
           })
         });
         compactTray();
       }
-      if (orderDone(c)) completeOrder(c);
     });
     return took;
   }
@@ -836,6 +839,7 @@
       if (c.patience <= 0) left.push(c);
     });
     left.forEach(function (c) {
+      queueCardOut(state.customers.indexOf(c), 'left');
       state.customers.splice(state.customers.indexOf(c), 1);
       state.lastFace = c.face;
       state.lost += 1;
@@ -980,12 +984,19 @@
       if (sale) runSaleFx(); else render({ pop: slot });
     });
 
+    checkShiftEnd();
+    return true;
+  }
+
+  // Смена может закончиться и не в момент хода: покупатель платит, когда его
+  // товар долетел до корзины, и план закрывается уже там.
+  function checkShiftEnd() {
+    if (state.status !== 'playing') return;
     if (state.served >= state.goal) finish('won');
     else if (state.lost >= state.cfg.lives) finish('lost', 'Слишком много ушедших покупателей');
     else if (trayIsFull()) finish('lost', 'Прилавок забит — смена сорвана');
     else if (state.belt.length === 0 && state.fridge.length === 0) finish('lost', 'Завоз кончился, план не выполнен');
     else checkStuck();
-    return true;
   }
 
   // Товар ложится только в свою зону, поэтому возможен тупик: зона забита, а
@@ -1316,6 +1327,27 @@
   function queueRows() { return Math.ceil(queueSize() / QUEUE_COLS); }
   function queueW() { return QUEUE_CARD_W; }
   function queueH() { return QUEUE_CARD_H; }
+
+  // Полоса под портрет слева. Персонаж — то, по чему игрок опознаёт заказ,
+  // поэтому полоса широкая; остальное отдано корзине.
+  function faceW() { return Math.max(84, Math.min(116, Math.round(queueW() * 0.5))); }
+
+  // Радиус значка в корзине и центр позиции li. Один расчёт и для отрисовки
+  // карточки, и для точки, куда летит забранный товар.
+  function orderIconR(n) {
+    var qw = queueW(), qh = queueH();
+    return Math.min(30, Math.floor((qh - 57) / 2.25),
+                    Math.floor((qw - faceW() - 6 - 10 * (n - 1)) / (2 * n)));
+  }
+  function orderIconSpot(qi, li, n) {
+    var qh = queueH(), r = orderIconR(n), top = 8 + r;
+    var infoY = Math.max(top + r * 1.25 + 12, qh - 44);
+    return {
+      x: queueX(qi) + faceW() - 6 + r + li * (r * 2 + 10),
+      y: queueY(qi) + (top + (infoY - 12 - r * 1.25)) / 2,
+      w: r * 1.55, h: r * 1.55
+    };
+  }
   function queueX(i) { return QUEUE_X0 + ((i || 0) % QUEUE_COLS) * (queueW() + QUEUE_GAP); }
   function queueY(i) { return QUEUE_Y + Math.floor((i || 0) / QUEUE_COLS) * (queueH() + QUEUE_GAP); }
 
@@ -1727,14 +1759,24 @@
   // Настроение на растровый бюст не переносится — оно и так читается пузырём
   // эмоции, словом под карточкой и полосой терпения. Нет текстуры (ассет не
   // собрался) — рисуем вектором, как раньше.
-  function personPortrait(r, idx, mood) {
+  // Портрет вписывается в коробку и стоит на низу карточки, а не в квадрат по
+  // большей стороне: бюсты обрезаны по контуру и у широких (бабушка с авоськой)
+  // при размере «по большей стороне» терялась высота — персонаж выходил мелким.
+  function personPortrait(w, h, idx, mood) {
     var tex = TEXTURES[BUST_BY_PERSON[personById(idx).id]];
-    if (!tex) return personGraphic(r, idx, mood);
+    if (!tex) {
+      // запасной вектор рисуется от центра лица — приводим к тому же низу
+      var wrap = new PIXI.Container();
+      var g = personGraphic(Math.min(w, h) * 0.34, idx, mood);
+      g.y = -h * 0.42;
+      wrap.addChild(g);
+      return wrap;
+    }
     var sp = new PIXI.Sprite(tex);
-    var k = (r * 2.7) / Math.max(tex.width, tex.height);
+    var k = Math.min(w / tex.width, h / tex.height);
     sp.width = tex.width * k;
     sp.height = tex.height * k;
-    sp.anchor.set(0.5);
+    sp.anchor.set(0.5, 1);
     return sp;
   }
 
@@ -2613,8 +2655,9 @@
       var mood = customerMood(c);
       var counts = trayCounts();
 
-      var face = personPortrait(Math.min(28, qh * 0.24), c.face, mood);
-      face.x = 48; face.y = qh * 0.44;
+      var fw = faceW();
+      var face = personPortrait(fw - 10, qh - 12, c.face, mood);
+      face.x = fw / 2; face.y = qh - 4;
       box.addChild(face);
 
       // Корзина: значки крупные — на телефоне видно, что именно просят.
@@ -2622,10 +2665,9 @@
       var lines = c.order;
       // Радиус — максимум, который влезает и по ширине карточки, и по высоте:
       // под корзиной остаются строка настроения и полоса терпения.
-      var r = Math.min(30, Math.floor((qh - 57) / 2.25),
-                       Math.floor((qw - 100 - 10 * (lines.length - 1)) / (2 * lines.length)));
+      var r = orderIconR(lines.length);
       var step = r * 2 + 10;
-      var x0 = 94 + r, top = 8 + r;
+      var x0 = fw - 6 + r, top = 8 + r;
       var infoY = Math.max(top + r * 1.25 + 12, qh - 44);
       var cy = (top + (infoY - 12 - r * 1.25)) / 2;   // корзина по центру свободного места
       lines.forEach(function (l, li) {
@@ -2668,10 +2710,10 @@
 
       // настроение подписью: покупателю видно, что он вот-вот уйдёт
       var note = label(moodWord(mood), 12, mood === 'angry' ? C.red : C.inkSoft, '700');
-      note.anchor.set(0, 0.5); note.x = 100; note.y = infoY;
+      note.anchor.set(0, 0.5); note.x = fw + 2; note.y = infoY;
       box.addChild(note);
 
-      var by = qh - 28, bx = 100, bw = qw - bx - 14;
+      var by = qh - 28, bx = fw + 2, bw = qw - bx - 14;
       var bar = new PIXI.Graphics();
       bar.roundRect(bx, by, bw, 20, 5).fill(0xE2E9EE);
       bar.roundRect(bx, by, Math.max(12, bw * ratio), 20, 10)
@@ -2683,9 +2725,9 @@
       pt.anchor.set(0.5); pt.x = bx + bw / 2; pt.y = by + 10;
       box.addChild(pt);
 
-      if (c.cheer > 0) box.addChild(emotionBubble(82, 18, 'cheer'));
-      else if (mood === 'angry') box.addChild(emotionBubble(82, 18, 'angry'));
-      else if (mood === 'worry') box.addChild(emotionBubble(82, 18, 'worry'));
+      if (c.cheer > 0) box.addChild(emotionBubble(fw - 18, 16, 'cheer'));
+      else if (mood === 'angry') box.addChild(emotionBubble(fw - 18, 16, 'angry'));
+      else if (mood === 'worry') box.addChild(emotionBubble(fw - 18, 16, 'worry'));
 
       // покупатель, сохранённый до появления uid, получает его здесь
       if (!c.uid) c.uid = ++customerSeq;
@@ -2802,7 +2844,7 @@
      в начало. Номер поколения не даёт анимации от предыдущей перерисовки
      перебивать свежую: узлы очереди пересоздаются на каждый render, и без
      этого две анимации одной карточки писали бы позицию наперегонки. */
-  function queueCardOut(i) {
+  function queueCardOut(i, kind) {
     if (!layers.queue) return;
     var node = layers.queue.children[i];
     if (!node) return;
@@ -2811,11 +2853,22 @@
     layers.fx.addChild(node);            // слой очереди сейчас перестроится — уводим узел
     node.pivot.set(qw / 2, qh / 2);
     node.x += qw / 2; node.y += qh / 2;
-    anim(300, function (p) {
+    // Довольный уходит вверх и чуть крупнее, ушедший ни с чем — вниз, с
+    // наклоном и уменьшаясь. Держим карточку на экране заметно дольше
+    // прежних 300 мс: раньше персонаж пропадал прежде, чем его успевали
+    // разглядеть.
+    var sad = kind === 'left';
+    anim(sad ? 520 : 560, function (p) {
       var e = easeOut(p);
-      node.alpha = 1 - e;
-      node.scale.set(1 + 0.1 * e);
-      node.y -= 0.7;
+      node.alpha = 1 - e * e;
+      if (sad) {
+        node.y += 1.1;
+        node.rotation = 0.07 * e;
+        node.scale.set(1 - 0.1 * e);
+      } else {
+        node.y -= 0.8;
+        node.scale.set(1 + 0.09 * e);
+      }
     }, function () { node.destroy(); });
   }
 
@@ -2942,8 +2995,17 @@
     var list = pendingPickups;
     pendingPickups = [];
     list.forEach(function (p) {
-      p.from.forEach(function (f) {
-        flyGhost(productById(f.id), f, p.to, function () {});
+      var rest = p.hops.length;
+      p.hops.forEach(function (h) {
+        flyGhost(productById(h.id), h.from, h.to, function () {
+          if (--rest > 0) return;                  // ждём последний товар набора
+          // Заказ закрывается здесь, а не в момент выкладки: монеты, выручка
+          // и уход покупателя идут после того, как товар долетел до корзины.
+          if (!p.done || state.status !== 'playing') return;
+          completeOrder(p.c);
+          render();
+          checkShiftEnd();
+        });
       });
     });
     if (list.length) sfx('select');
