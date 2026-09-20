@@ -1440,20 +1440,21 @@
     }));
   }
 
-  function productIcon(product, size) {
+  // boxW/boxH — рамка, в которую предмет должен поместиться целиком.
+  // Растровые иконки обрезаны по контуру вплотную, без полей внутри картинки,
+  // поэтому запас по краям задаёт вызывающий код, а не сам ассет.
+  function productIcon(product, boxW, boxH) {
+    if (boxH == null) boxH = boxW;
     var art = TEXTURES[product.id];
     if (art) {
       var sp = new PIXI.Sprite(art);
-      // Растровые иконки обрезаны по контуру предмета и потому не квадратные:
-      // морковь вытянута вверх, батон лежит. Вписываем в квадрат size по
-      // большей стороне — иначе спрайт плющит до квадрата.
-      var k = size / Math.max(art.width, art.height);
+      var k = Math.min(boxW / art.width, boxH / art.height);
       sp.width = art.width * k;
       sp.height = art.height * k;
       sp.anchor.set(0.5);
       return sp;
     }
-    var gl = glyphText(product.glyph, size * 0.8);
+    var gl = glyphText(product.glyph, Math.min(boxW, boxH) * 0.8);
     gl.anchor.set(0.5);
     return gl;
   }
@@ -1483,11 +1484,13 @@
           .fill({ color: 0x24313B, alpha: 0.2 });
     c.addChild(shadow);
 
-    // на прилавке слот узкий, но высокий: тянемся по высоте, иначе товар мельчает
+    // На прилавке слот узкий и высокий, поэтому рамка прямоугольная: предмет
+    // тянется по высоте, но не вылезает за ширину ячейки. Нижняя граница
+    // рамки оставляет место тени, а в варианте с ценой — ещё и ценнику.
     var iconY = opts.price ? h * 0.36 : h * 0.40;
-    var icon = productIcon(product, opts.price
-      ? Math.min(w, h * 0.68) * 1.02
-      : Math.min(w * 1.62, h * 0.92));
+    var icon = productIcon(product,
+      w * (opts.price ? 0.88 : 0.94),
+      h * (opts.price ? 0.62 : 0.72));
     icon.x = w / 2; icon.y = iconY;
     c.addChild(icon);
 
@@ -1504,14 +1507,21 @@
     }
 
     if (state.saleProduct === product.id) {
+      // Плашка и надпись поворачиваются вместе, вокруг одной точки. Раньше
+      // Graphics крутился вокруг начала координат ячейки (плечо ~80 px, фон
+      // уезжал вверх на десяток пикселей), а текст — вокруг своего центра,
+      // и надпись оставалась висеть мимо фона.
+      var badgeBox = new PIXI.Container();
+      badgeBox.x = w - 21; badgeBox.y = 14;
+      badgeBox.rotation = -0.12;
       var badge = new PIXI.Graphics();
-      badge.roundRect(w - 40, 2, 38, 24, 10).fill(C.red);
-      badge.roundRect(w - 40, 2, 38, 24, 10).stroke({ width: 4, color: C.ink, alpha: 1 });
-      badge.rotation = -0.12;
-      c.addChild(badge);
+      badge.roundRect(-19, -12, 38, 24, 10).fill(C.red);
+      badge.roundRect(-19, -12, 38, 24, 10).stroke({ width: 4, color: C.ink, alpha: 1 });
+      badgeBox.addChild(badge);
       var bt = label('×2', 15, 0xFFFFFF, '800');
-      bt.anchor.set(0.5); bt.x = w - 21; bt.y = 14; bt.rotation = -0.12;
-      c.addChild(bt);
+      bt.anchor.set(0.5);
+      badgeBox.addChild(bt);
+      c.addChild(badgeBox);
     }
 
     if (opts.tilt) {
