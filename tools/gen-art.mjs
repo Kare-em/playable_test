@@ -64,7 +64,10 @@ async function withRetry(label, fn) {
   for (let attempt = 0; ; attempt++) {
     try {
       const r = await fn();
-      const retryable = r.status === 429 || r.status >= 500;
+      // 404 сюда попал не зря: в прогоне на 51 ассет один запрос вернул
+      // 404 «Модель недоступна», а соседние прошли — сбой был временный,
+      // и без повтора ассет молча потерялся бы до ручной проверки
+      const retryable = r.status === 429 || r.status === 404 || r.status >= 500;
       if (r.ok || !retryable || attempt >= delays.length) return r;
       console.warn(`  ${label}: HTTP ${r.status}, повтор через ${delays[attempt] / 1000}с`);
     } catch (e) {
@@ -92,6 +95,19 @@ if (typeof only === 'string') {
   const bad = ids.filter((id) => !PROMPTS[id]);
   if (bad.length) fail(`неизвестные id: ${bad.join(', ')}`);
 }
+// Товары рисуются атласами (tools/gen-products-atlas.mjs): восемь предметов
+// одним запросом, и промпт там свой, листовой. Поштучно они стоили бы в семь
+// раз дороже, поэтому из общего прогона исключены — но остаются доступны
+// через --only, если нужно добрать конкретный.
+if (typeof only !== 'string') {
+  const products = ids.filter((id) => PROMPTS[id].group === 'product');
+  if (products.length) {
+    ids = ids.filter((id) => PROMPTS[id].group !== 'product');
+    console.log(`товаров пропущено: ${products.length} — они генерируются атласами: `
+      + `node tools/gen-products-atlas.mjs`);
+  }
+}
+
 const prio = flag('prio');
 if (typeof prio === 'string') ids = ids.filter((id) => PROMPTS[id].prio === prio);
 const group = flag('group');

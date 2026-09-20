@@ -6,9 +6,14 @@
     "actual": "1024x1024",
     "group": "character",
     "prio": "P0",
-    "promptHash": "662bdfb4243ae4e3",
+    "promptHash": "88bb8f2954b9718d",
     "bytes": 508692,
-    "createdAt": "2026-09-20T17:53:35.619Z"
+    "createdAt": "2026-09-20T17:53:35.619Z",
+    "ready": {
+      "file": "bust-granny.webp",
+      "size": "512x512",
+      "bytes": 19958
+    }
   },
   "bust-courier": {
     "file": "bust-courier.jpg",
@@ -17,9 +22,14 @@
     "actual": "2048x2048",
     "group": "character",
     "prio": "P0",
-    "promptHash": "78a5041777bef73d",
+    "promptHash": "21da7d1132142e43",
     "bytes": 1568860,
-    "createdAt": "2026-09-20T17:54:02.641Z"
+    "createdAt": "2026-09-20T17:54:02.641Z",
+    "ready": {
+      "file": "bust-courier.webp",
+      "size": "512x512",
+      "bytes": 16198
+    }
   },
   "bust-schoolboy": {
     "file": "bust-schoolboy.jpg",
@@ -28,9 +38,14 @@
     "actual": "2048x2048",
     "group": "character",
     "prio": "P0",
-    "promptHash": "a417f4fcfdd896c8",
+    "promptHash": "e4119fb3e6754de8",
     "bytes": 1972564,
-    "createdAt": "2026-09-20T17:54:26.324Z"
+    "createdAt": "2026-09-20T17:54:26.324Z",
+    "ready": {
+      "file": "bust-schoolboy.webp",
+      "size": "512x512",
+      "bytes": 16482
+    }
   },
   "interior-shop1-s0": {
     "file": "interior-shop1-s0.jpg",
@@ -39,9 +54,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P0",
-    "promptHash": "748a667aec7f954f",
+    "promptHash": "e1abfa8083b874c6",
     "bytes": 1923397,
-    "createdAt": "2026-09-20T17:55:20.545Z"
+    "createdAt": "2026-09-20T17:55:20.545Z",
+    "ready": {
+      "file": "interior-shop1-s0.webp",
+      "size": "1440x1440",
+      "bytes": 77300
+    }
   },
   "bust-mom": {
     "file": "bust-mom.jpg",
@@ -50,9 +70,14 @@
     "actual": "2048x2048",
     "group": "character",
     "prio": "P1",
-    "promptHash": "f9495b00cc947088",
+    "promptHash": "48c97dfb332fd54c",
     "bytes": 1536799,
-    "createdAt": "2026-09-20T17:56:02.497Z"
+    "createdAt": "2026-09-20T17:56:02.497Z",
+    "ready": {
+      "file": "bust-mom.webp",
+      "size": "512x512",
+      "bytes": 18916
+    }
   },
   "bust-taxi": {
     "file": "bust-taxi.jpg",
@@ -61,9 +86,14 @@
     "actual": "2048x2048",
     "group": "character",
     "prio": "P1",
-    "promptHash": "ac118f2600438f43",
+    "promptHash": "333492edb95639aa",
     "bytes": 1721056,
-    "createdAt": "2026-09-20T17:56:26.300Z"
+    "createdAt": "2026-09-20T17:56:26.300Z",
+    "ready": {
+      "file": "bust-taxi.webp",
+      "size": "512x512",
+      "bytes": 20766
+    }
   },
   "bust-dacha": {
     "file": "bust-dacha.jpg",
@@ -72,9 +102,14 @@
     "actual": "2048x2048",
     "group": "character",
     "prio": "P1",
-    "promptHash": "6dad5223c525550b",
+    "promptHash": "27ec9c23b51331b9",
     "bytes": 1644123,
-    "createdAt": "2026-09-20T17:56:52.289Z"
+    "createdAt": "2026-09-20T17:56:52.289Z",
+    "ready": {
+      "file": "bust-dacha.webp",
+      "size": "512x512",
+      "bytes": 18604
+    }
   },
   "bust-student": {
     "file": "bust-student.jpg",
@@ -83,9 +118,14 @@
     "actual": "2048x2048",
     "group": "character",
     "prio": "P1",
-    "promptHash": "c6e4e913771f4c58",
+    "promptHash": "73f8a72b0475d263",
     "bytes": 1513011,
-    "createdAt": "2026-09-20T17:57:21.643Z"
+    "createdAt": "2026-09-20T17:57:21.643Z",
+    "ready": {
+      "file": "bust-student.webp",
+      "size": "512x512",
+      "bytes": 15026
+    }
   },
   "bust-pensioner": {
     "file": "bust-pensioner.jpg",
@@ -94,9 +134,14 @@
     "actual": "2048x2048",
     "group": "character",
     "prio": "P1",
-    "promptHash": "ea252f88ec143051",
+    "promptHash": "d75a8b2b26c7fbd6",
     "bytes": 1794794,
-    "createdAt": "2026-09-20T17:57:58.568Z"
+    "createdAt": "2026-09-20T17:57:58.568Z",
+    "ready": {
+      "file": "bust-pensioner.webp",
+      "size": "512x512",
+      "bytes": 21534
+    }
   },
   "bust-handyman": {
     "file": "bust-handyman.jpg",
@@ -105,9 +150,14 @@
     "actual": "2048x2048",
     "group": "character",
     "prio": "P1",
-    "promptHash": "f16aa0a0db4d0985",
+    "promptHash": "7e7ba1f6efff4ffe",
     "bytes": 2039275,
-    "createdAt": "2026-09-20T17:58:24.240Z"
+    "createdAt": "2026-09-20T17:58:24.240Z",
+    "ready": {
+      "file": "bust-handyman.webp",
+      "size": "512x512",
+      "bytes": 23272
+    }
   },
   "bust-neighbor": {
     "file": "bust-neighbor.jpg",
@@ -116,9 +166,14 @@
     "actual": "2048x2048",
     "group": "character",
     "prio": "P1",
-    "promptHash": "fb87e3c606939122",
+    "promptHash": "540b631529d51e92",
     "bytes": 1853807,
-    "createdAt": "2026-09-20T17:58:50.127Z"
+    "createdAt": "2026-09-20T17:58:50.127Z",
+    "ready": {
+      "file": "bust-neighbor.webp",
+      "size": "512x512",
+      "bytes": 20906
+    }
   },
   "full-granny": {
     "file": "full-granny.jpg",
@@ -127,9 +182,14 @@
     "actual": "1696x2528",
     "group": "character",
     "prio": "P1",
-    "promptHash": "09c5c5a4fd2b137f",
+    "promptHash": "e43d6744444c43ba",
     "bytes": 1964648,
-    "createdAt": "2026-09-20T17:59:16.287Z"
+    "createdAt": "2026-09-20T17:59:16.287Z",
+    "ready": {
+      "file": "full-granny.webp",
+      "size": "600x894",
+      "bytes": 27778
+    }
   },
   "full-courier": {
     "file": "full-courier.jpg",
@@ -138,9 +198,14 @@
     "actual": "1696x2528",
     "group": "character",
     "prio": "P1",
-    "promptHash": "d0d33bd0c0d5a07f",
+    "promptHash": "fe372566326f2107",
     "bytes": 1981670,
-    "createdAt": "2026-09-20T17:59:42.240Z"
+    "createdAt": "2026-09-20T17:59:42.240Z",
+    "ready": {
+      "file": "full-courier.webp",
+      "size": "600x894",
+      "bytes": 19700
+    }
   },
   "full-schoolboy": {
     "file": "full-schoolboy.jpg",
@@ -149,9 +214,14 @@
     "actual": "1696x2528",
     "group": "character",
     "prio": "P1",
-    "promptHash": "799e12c9d814141f",
+    "promptHash": "4ec1924b7a71b684",
     "bytes": 1941392,
-    "createdAt": "2026-09-20T18:00:08.825Z"
+    "createdAt": "2026-09-20T18:00:08.825Z",
+    "ready": {
+      "file": "full-schoolboy.webp",
+      "size": "600x894",
+      "bytes": 22574
+    }
   },
   "full-mom": {
     "file": "full-mom.jpg",
@@ -160,9 +230,14 @@
     "actual": "1696x2528",
     "group": "character",
     "prio": "P1",
-    "promptHash": "3c33f1c9bfd0063e",
+    "promptHash": "016388f4ad39a007",
     "bytes": 2158952,
-    "createdAt": "2026-09-20T18:00:36.057Z"
+    "createdAt": "2026-09-20T18:00:36.057Z",
+    "ready": {
+      "file": "full-mom.webp",
+      "size": "600x894",
+      "bytes": 31014
+    }
   },
   "full-taxi": {
     "file": "full-taxi.jpg",
@@ -171,9 +246,14 @@
     "actual": "1696x2528",
     "group": "character",
     "prio": "P1",
-    "promptHash": "14692e6be6ce20df",
+    "promptHash": "5dee806b9c577119",
     "bytes": 2098848,
-    "createdAt": "2026-09-20T18:01:03.458Z"
+    "createdAt": "2026-09-20T18:01:03.458Z",
+    "ready": {
+      "file": "full-taxi.webp",
+      "size": "600x894",
+      "bytes": 20042
+    }
   },
   "full-dacha": {
     "file": "full-dacha.jpg",
@@ -182,9 +262,14 @@
     "actual": "1696x2528",
     "group": "character",
     "prio": "P1",
-    "promptHash": "4f241cd963aa8a63",
+    "promptHash": "4e1f66938e03ce45",
     "bytes": 1994737,
-    "createdAt": "2026-09-20T18:01:39.580Z"
+    "createdAt": "2026-09-20T18:01:39.580Z",
+    "ready": {
+      "file": "full-dacha.webp",
+      "size": "600x894",
+      "bytes": 20778
+    }
   },
   "full-student": {
     "file": "full-student.jpg",
@@ -193,9 +278,14 @@
     "actual": "1696x2528",
     "group": "character",
     "prio": "P1",
-    "promptHash": "8449f814be478020",
+    "promptHash": "aab17a1a9330415b",
     "bytes": 2055665,
-    "createdAt": "2026-09-20T18:02:18.872Z"
+    "createdAt": "2026-09-20T18:02:18.872Z",
+    "ready": {
+      "file": "full-student.webp",
+      "size": "600x894",
+      "bytes": 21674
+    }
   },
   "full-pensioner": {
     "file": "full-pensioner.jpg",
@@ -204,9 +294,14 @@
     "actual": "1696x2528",
     "group": "character",
     "prio": "P1",
-    "promptHash": "07fad0e89f3c927b",
+    "promptHash": "44041e07071c59ee",
     "bytes": 2104101,
-    "createdAt": "2026-09-20T18:02:55.498Z"
+    "createdAt": "2026-09-20T18:02:55.498Z",
+    "ready": {
+      "file": "full-pensioner.webp",
+      "size": "600x894",
+      "bytes": 21338
+    }
   },
   "full-handyman": {
     "file": "full-handyman.jpg",
@@ -215,9 +310,14 @@
     "actual": "1696x2528",
     "group": "character",
     "prio": "P1",
-    "promptHash": "f7cc8569156a6856",
+    "promptHash": "97446060c15e87ee",
     "bytes": 2069293,
-    "createdAt": "2026-09-20T18:03:21.625Z"
+    "createdAt": "2026-09-20T18:03:21.625Z",
+    "ready": {
+      "file": "full-handyman.webp",
+      "size": "600x894",
+      "bytes": 23294
+    }
   },
   "full-neighbor": {
     "file": "full-neighbor.jpg",
@@ -226,9 +326,14 @@
     "actual": "1696x2528",
     "group": "character",
     "prio": "P1",
-    "promptHash": "7ffeb0b06f91fafa",
+    "promptHash": "91fffb3ede596a53",
     "bytes": 1984571,
-    "createdAt": "2026-09-20T18:04:01.657Z"
+    "createdAt": "2026-09-20T18:04:01.657Z",
+    "ready": {
+      "file": "full-neighbor.webp",
+      "size": "600x894",
+      "bytes": 26874
+    }
   },
   "interior-shop1-s1": {
     "file": "interior-shop1-s1.jpg",
@@ -237,9 +342,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "ac0d376e90698597",
+    "promptHash": "15147809429e16dd",
     "bytes": 2179071,
-    "createdAt": "2026-09-20T18:04:27.085Z"
+    "createdAt": "2026-09-20T18:04:27.085Z",
+    "ready": {
+      "file": "interior-shop1-s1.webp",
+      "size": "1440x1440",
+      "bytes": 143622
+    }
   },
   "interior-shop1-s2": {
     "file": "interior-shop1-s2.jpg",
@@ -248,9 +358,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "e6038dc8afc585e0",
+    "promptHash": "677698e51d879f46",
     "bytes": 2285546,
-    "createdAt": "2026-09-20T18:05:04.771Z"
+    "createdAt": "2026-09-20T18:05:04.771Z",
+    "ready": {
+      "file": "interior-shop1-s2.webp",
+      "size": "1440x1440",
+      "bytes": 169930
+    }
   },
   "interior-shop2-s0": {
     "file": "interior-shop2-s0.jpg",
@@ -259,9 +374,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "ea097e5eb7709c08",
+    "promptHash": "a1477f89da119956",
     "bytes": 2100959,
-    "createdAt": "2026-09-20T18:05:45.050Z"
+    "createdAt": "2026-09-20T18:05:45.050Z",
+    "ready": {
+      "file": "interior-shop2-s0.webp",
+      "size": "1440x1440",
+      "bytes": 89886
+    }
   },
   "interior-shop2-s1": {
     "file": "interior-shop2-s1.jpg",
@@ -270,9 +390,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "de46f966f0ff75d2",
+    "promptHash": "fb3964f62f2bcca6",
     "bytes": 2447112,
-    "createdAt": "2026-09-20T18:06:11.905Z"
+    "createdAt": "2026-09-20T18:06:11.905Z",
+    "ready": {
+      "file": "interior-shop2-s1.webp",
+      "size": "1440x1440",
+      "bytes": 92702
+    }
   },
   "interior-shop2-s2": {
     "file": "interior-shop2-s2.jpg",
@@ -281,9 +406,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "ecdd02cecb28f8a8",
+    "promptHash": "f9033911212b91d2",
     "bytes": 2238255,
-    "createdAt": "2026-09-20T18:06:39.813Z"
+    "createdAt": "2026-09-20T18:06:39.813Z",
+    "ready": {
+      "file": "interior-shop2-s2.webp",
+      "size": "1440x1440",
+      "bytes": 121558
+    }
   },
   "interior-shop3-s0": {
     "file": "interior-shop3-s0.jpg",
@@ -292,9 +422,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "3ef1de552d75c304",
-    "bytes": 2321688,
-    "createdAt": "2026-09-20T18:07:05.869Z"
+    "promptHash": "ba3b0a9c8290cb61",
+    "bytes": 2209971,
+    "createdAt": "2026-09-20T18:27:00.654Z",
+    "ready": {
+      "file": "interior-shop3-s0.webp",
+      "size": "1440x1440",
+      "bytes": 112326
+    }
   },
   "interior-shop3-s1": {
     "file": "interior-shop3-s1.jpg",
@@ -303,9 +438,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "576e1ff4344c16a2",
+    "promptHash": "3920ae6fea67ee7f",
     "bytes": 1871370,
-    "createdAt": "2026-09-20T18:07:30.175Z"
+    "createdAt": "2026-09-20T18:07:30.175Z",
+    "ready": {
+      "file": "interior-shop3-s1.webp",
+      "size": "1440x1440",
+      "bytes": 71420
+    }
   },
   "interior-shop3-s2": {
     "file": "interior-shop3-s2.jpg",
@@ -314,9 +454,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "3756d83f176d27a7",
+    "promptHash": "8c392aa8665b947f",
     "bytes": 2050767,
-    "createdAt": "2026-09-20T18:07:56.583Z"
+    "createdAt": "2026-09-20T18:07:56.583Z",
+    "ready": {
+      "file": "interior-shop3-s2.webp",
+      "size": "1440x1440",
+      "bytes": 102518
+    }
   },
   "interior-shop4-s0": {
     "file": "interior-shop4-s0.jpg",
@@ -325,9 +470,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "05fb59d510bea4e3",
+    "promptHash": "c53f5922db20ba19",
     "bytes": 2230770,
-    "createdAt": "2026-09-20T18:08:21.868Z"
+    "createdAt": "2026-09-20T18:08:21.868Z",
+    "ready": {
+      "file": "interior-shop4-s0.webp",
+      "size": "1440x1440",
+      "bytes": 106108
+    }
   },
   "interior-shop4-s1": {
     "file": "interior-shop4-s1.jpg",
@@ -336,9 +486,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "45108801d68f9112",
+    "promptHash": "0cf6530705ade485",
     "bytes": 2039632,
-    "createdAt": "2026-09-20T18:08:49.347Z"
+    "createdAt": "2026-09-20T18:08:49.347Z",
+    "ready": {
+      "file": "interior-shop4-s1.webp",
+      "size": "1440x1440",
+      "bytes": 104670
+    }
   },
   "interior-shop4-s2": {
     "file": "interior-shop4-s2.jpg",
@@ -347,9 +502,14 @@
     "actual": "1024x1024",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "362518f1680f23fb",
+    "promptHash": "7bedcdb18dfb7728",
     "bytes": 858610,
-    "createdAt": "2026-09-20T18:09:08.568Z"
+    "createdAt": "2026-09-20T18:09:08.568Z",
+    "ready": {
+      "file": "interior-shop4-s2.webp",
+      "size": "1024x1024",
+      "bytes": 139896
+    }
   },
   "upgrade-fridge-l1": {
     "file": "upgrade-fridge-l1.jpg",
@@ -358,9 +518,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "7ffff04734923c4b",
+    "promptHash": "50aa72ddb471d2fd",
     "bytes": 1723322,
-    "createdAt": "2026-09-20T18:09:34.484Z"
+    "createdAt": "2026-09-20T18:09:34.484Z",
+    "ready": {
+      "file": "upgrade-fridge-l1.webp",
+      "size": "800x800",
+      "bytes": 31688
+    }
   },
   "upgrade-fridge-l2": {
     "file": "upgrade-fridge-l2.jpg",
@@ -369,9 +534,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "fec1dd5203dd2db2",
+    "promptHash": "ca51a9d026bfe2e7",
     "bytes": 1700227,
-    "createdAt": "2026-09-20T18:10:13.563Z"
+    "createdAt": "2026-09-20T18:10:13.563Z",
+    "ready": {
+      "file": "upgrade-fridge-l2.webp",
+      "size": "800x800",
+      "bytes": 36688
+    }
   },
   "upgrade-display-l0": {
     "file": "upgrade-display-l0.jpg",
@@ -380,9 +550,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "d9532eea323118db",
+    "promptHash": "8ff6679d777b4d0b",
     "bytes": 1802784,
-    "createdAt": "2026-09-20T18:10:47.471Z"
+    "createdAt": "2026-09-20T18:10:47.471Z",
+    "ready": {
+      "file": "upgrade-display-l0.webp",
+      "size": "800x800",
+      "bytes": 38468
+    }
   },
   "upgrade-display-l1": {
     "file": "upgrade-display-l1.jpg",
@@ -391,9 +566,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "815ef0e7ed70a047",
+    "promptHash": "3df9cd473a0dc0ef",
     "bytes": 2078859,
-    "createdAt": "2026-09-20T18:11:11.716Z"
+    "createdAt": "2026-09-20T18:11:11.716Z",
+    "ready": {
+      "file": "upgrade-display-l1.webp",
+      "size": "800x800",
+      "bytes": 36072
+    }
   },
   "upgrade-display-l2": {
     "file": "upgrade-display-l2.jpg",
@@ -402,9 +582,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "76c18c187ed24af1",
+    "promptHash": "cbc8bab88d368d0e",
     "bytes": 1944493,
-    "createdAt": "2026-09-20T18:11:41.886Z"
+    "createdAt": "2026-09-20T18:11:41.886Z",
+    "ready": {
+      "file": "upgrade-display-l2.webp",
+      "size": "800x800",
+      "bytes": 42448
+    }
   },
   "upgrade-register-l0": {
     "file": "upgrade-register-l0.jpg",
@@ -413,9 +598,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "094f9c6c87794fbe",
+    "promptHash": "fa9596509800bee8",
     "bytes": 1759722,
-    "createdAt": "2026-09-20T18:12:14.294Z"
+    "createdAt": "2026-09-20T18:12:14.294Z",
+    "ready": {
+      "file": "upgrade-register-l0.webp",
+      "size": "800x800",
+      "bytes": 25980
+    }
   },
   "upgrade-register-l1": {
     "file": "upgrade-register-l1.jpg",
@@ -424,9 +614,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "444f92a68772366a",
+    "promptHash": "e742cf3dd30fb771",
     "bytes": 1803185,
-    "createdAt": "2026-09-20T18:12:39.451Z"
+    "createdAt": "2026-09-20T18:12:39.451Z",
+    "ready": {
+      "file": "upgrade-register-l1.webp",
+      "size": "800x800",
+      "bytes": 34916
+    }
   },
   "upgrade-register-l2": {
     "file": "upgrade-register-l2.jpg",
@@ -435,9 +630,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "c89c2ff0113c7164",
+    "promptHash": "484a567e735a51df",
     "bytes": 1579275,
-    "createdAt": "2026-09-20T18:13:43.998Z"
+    "createdAt": "2026-09-20T18:13:43.998Z",
+    "ready": {
+      "file": "upgrade-register-l2.webp",
+      "size": "800x800",
+      "bytes": 22800
+    }
   },
   "upgrade-sign-l0": {
     "file": "upgrade-sign-l0.jpg",
@@ -446,9 +646,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "7dfe4681876e28bb",
+    "promptHash": "86d88d57e85afe31",
     "bytes": 1594805,
-    "createdAt": "2026-09-20T18:14:08.999Z"
+    "createdAt": "2026-09-20T18:14:08.999Z",
+    "ready": {
+      "file": "upgrade-sign-l0.webp",
+      "size": "800x800",
+      "bytes": 22786
+    }
   },
   "upgrade-sign-l1": {
     "file": "upgrade-sign-l1.jpg",
@@ -457,9 +662,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "4df26e3f945dc6ce",
+    "promptHash": "e4d51dc7a861d93d",
     "bytes": 1950352,
-    "createdAt": "2026-09-20T18:14:35.138Z"
+    "createdAt": "2026-09-20T18:14:35.138Z",
+    "ready": {
+      "file": "upgrade-sign-l1.webp",
+      "size": "800x800",
+      "bytes": 23676
+    }
   },
   "upgrade-sign-l2": {
     "file": "upgrade-sign-l2.jpg",
@@ -468,9 +678,14 @@
     "actual": "2048x2048",
     "group": "interior",
     "prio": "P1",
-    "promptHash": "851a94b7d4019fbd",
+    "promptHash": "5ad9c4d02c13e739",
     "bytes": 1795671,
-    "createdAt": "2026-09-20T18:15:07.828Z"
+    "createdAt": "2026-09-20T18:15:07.828Z",
+    "ready": {
+      "file": "upgrade-sign-l2.webp",
+      "size": "800x800",
+      "bytes": 22216
+    }
   },
   "bg-shop1": {
     "file": "bg-shop1.jpg",
@@ -479,9 +694,14 @@
     "actual": "1696x2528",
     "group": "background",
     "prio": "P1",
-    "promptHash": "b0f334072299f4b4",
+    "promptHash": "50cb7a5ef2056915",
     "bytes": 2259048,
-    "createdAt": "2026-09-20T18:15:57.586Z"
+    "createdAt": "2026-09-20T18:15:57.586Z",
+    "ready": {
+      "file": "bg-shop1.webp",
+      "size": "1440x2146",
+      "bytes": 118844
+    }
   },
   "bg-shop2": {
     "file": "bg-shop2.jpg",
@@ -490,9 +710,14 @@
     "actual": "1696x2528",
     "group": "background",
     "prio": "P1",
-    "promptHash": "33eb8667405d9fe2",
+    "promptHash": "98a97b25cd43a1b4",
     "bytes": 2278642,
-    "createdAt": "2026-09-20T18:16:22.640Z"
+    "createdAt": "2026-09-20T18:16:22.640Z",
+    "ready": {
+      "file": "bg-shop2.webp",
+      "size": "1440x2146",
+      "bytes": 129244
+    }
   },
   "bg-shop3": {
     "file": "bg-shop3.jpg",
@@ -501,9 +726,14 @@
     "actual": "1696x2528",
     "group": "background",
     "prio": "P1",
-    "promptHash": "f736424728b43eb7",
+    "promptHash": "5dc1b4c7bac4b35b",
     "bytes": 2231467,
-    "createdAt": "2026-09-20T18:16:47.675Z"
+    "createdAt": "2026-09-20T18:16:47.675Z",
+    "ready": {
+      "file": "bg-shop3.webp",
+      "size": "1440x2146",
+      "bytes": 115860
+    }
   },
   "bg-shop4": {
     "file": "bg-shop4.jpg",
@@ -512,9 +742,14 @@
     "actual": "1696x2528",
     "group": "background",
     "prio": "P1",
-    "promptHash": "72b6824578a3bf8b",
+    "promptHash": "ba459a442231dc9d",
     "bytes": 2250676,
-    "createdAt": "2026-09-20T18:17:12.987Z"
+    "createdAt": "2026-09-20T18:17:12.987Z",
+    "ready": {
+      "file": "bg-shop4.webp",
+      "size": "1440x2146",
+      "bytes": 131110
+    }
   },
   "iap-starter": {
     "file": "iap-starter.jpg",
@@ -523,9 +758,14 @@
     "actual": "2048x2048",
     "group": "ui",
     "prio": "P1",
-    "promptHash": "fedab5847acda9b5",
+    "promptHash": "7a25d11bb88456a4",
     "bytes": 1952681,
-    "createdAt": "2026-09-20T18:17:50.286Z"
+    "createdAt": "2026-09-20T18:17:50.286Z",
+    "ready": {
+      "file": "iap-starter.webp",
+      "size": "512x512",
+      "bytes": 18972
+    }
   },
   "iap-noads": {
     "file": "iap-noads.jpg",
@@ -534,9 +774,14 @@
     "actual": "2048x2048",
     "group": "ui",
     "prio": "P1",
-    "promptHash": "fb3eb0f2db6b18ad",
+    "promptHash": "9d6969e770351ea6",
     "bytes": 1764257,
-    "createdAt": "2026-09-20T18:18:16.257Z"
+    "createdAt": "2026-09-20T18:18:16.257Z",
+    "ready": {
+      "file": "iap-noads.webp",
+      "size": "512x512",
+      "bytes": 15282
+    }
   },
   "iap-pass": {
     "file": "iap-pass.jpg",
@@ -545,9 +790,14 @@
     "actual": "2048x2048",
     "group": "ui",
     "prio": "P1",
-    "promptHash": "09cc75cfe2900cfc",
+    "promptHash": "b7a29420888e12c9",
     "bytes": 2009735,
-    "createdAt": "2026-09-20T18:18:50.434Z"
+    "createdAt": "2026-09-20T18:18:50.434Z",
+    "ready": {
+      "file": "iap-pass.webp",
+      "size": "512x512",
+      "bytes": 24940
+    }
   },
   "iap-coins": {
     "file": "iap-coins.jpg",
@@ -556,9 +806,14 @@
     "actual": "2048x2048",
     "group": "ui",
     "prio": "P1",
-    "promptHash": "17bfab8cf48b89ea",
+    "promptHash": "4ae7777695a34ae2",
     "bytes": 1788776,
-    "createdAt": "2026-09-20T18:19:15.170Z"
+    "createdAt": "2026-09-20T18:19:15.170Z",
+    "ready": {
+      "file": "iap-coins.webp",
+      "size": "512x512",
+      "bytes": 13212
+    }
   },
   "loading-screen": {
     "file": "loading-screen.jpg",
@@ -567,9 +822,14 @@
     "actual": "1696x2528",
     "group": "promo",
     "prio": "P1",
-    "promptHash": "93d33ac60724c6ee",
+    "promptHash": "a44952cfad98d208",
     "bytes": 2524446,
-    "createdAt": "2026-09-20T18:19:52.858Z"
+    "createdAt": "2026-09-20T18:19:52.858Z",
+    "ready": {
+      "file": "loading-screen.webp",
+      "size": "1440x2146",
+      "bytes": 189314
+    }
   },
   "game-icon": {
     "file": "game-icon.jpg",
@@ -578,8 +838,45 @@
     "actual": "2048x2048",
     "group": "promo",
     "prio": "P1",
-    "promptHash": "2cadf011ce0ec606",
+    "promptHash": "0adba6183b8be609",
     "bytes": 2055098,
-    "createdAt": "2026-09-20T18:20:27.470Z"
+    "createdAt": "2026-09-20T18:20:27.470Z",
+    "ready": {
+      "file": "game-icon.webp",
+      "size": "1024x1024",
+      "bytes": 58810
+    }
+  },
+  "cover": {
+    "file": "cover.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1536x1024",
+    "actual": "2528x1696",
+    "group": "promo",
+    "prio": "P1",
+    "promptHash": "d074dd0b7657e4b8",
+    "bytes": 2323570,
+    "createdAt": "2026-09-20T18:21:06.637Z",
+    "ready": {
+      "file": "cover.webp",
+      "size": "1878x1260",
+      "bytes": 134402
+    }
+  },
+  "upgrade-fridge-l0": {
+    "file": "upgrade-fridge-l0.jpg",
+    "model": "google/gemini-3.1-flash-image-preview",
+    "size": "1024x1024",
+    "actual": "2048x2048",
+    "group": "interior",
+    "prio": "P1",
+    "promptHash": "e4c05c1795e960ff",
+    "bytes": 1520569,
+    "createdAt": "2026-09-20T18:24:39.658Z",
+    "ready": {
+      "file": "upgrade-fridge-l0.webp",
+      "size": "800x800",
+      "bytes": 21596
+    }
   }
 }

@@ -17,7 +17,9 @@ export const STYLE = [
   'instantly recognisable subject with true-to-life details and honest colours, '
     + 'so it reads at a glance at small size',
   'warm soft lighting from the upper left, gentle contact shadow grounding the subject',
-  'warm palette on a cream #F3E7D3 background',
+  // Хекс-код из промпта убран намеренно: на interior-shop3-s0 модель
+  // напечатала «#F3E7D3» прямо в кадре как подпись. Цвет описан словами.
+  'warm palette on a plain pale cream background, the soft warm off-white of unbleached paper',
   'crisp readable silhouette, centred subject, clean edges without a drawn ink outline',
   'no harsh specular glare, no lens flare, no depth-of-field blur on the subject',
   'NO text, NO letters, NO numbers, NO logos, NO watermark, NO UI elements'
