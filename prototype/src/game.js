@@ -220,6 +220,7 @@
       d.shiftIdx = Number(raw.shiftIdx) || 0;
       d.streak = Number(raw.streak) || 0;
       d.total = Number(raw.total) || 0;
+      d.savedAt = Number(raw.savedAt) || 0;
       UPGRADES.forEach(function (u) {
         d.up[u.id] = Math.min(Number(raw.up && raw.up[u.id]) || 0, u.max);
       });
@@ -228,7 +229,11 @@
   }
 
   function saveMeta() {
+    meta.savedAt = Date.now();
     try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) {}
+    // Облако площадки — поверх локального хранилища, а не вместо него:
+    // localStorage держит прогресс при F5 даже без сети и без авторизации.
+    try { window.YGames && window.YGames.save(meta); } catch (e) {}
   }
 
   /* ------------------------------------------------------- журнал плейтеста */
@@ -578,6 +583,7 @@
   }
 
   function startShift(shiftIdx, seed) {
+    try { window.YGames && window.YGames.gameplayStart(); } catch (e) {}
     var cfg = shiftConfig(shiftIdx);
     var rnd = mulberry32(seed == null ? (shiftIdx + 1) * 7919 : seed);
 
@@ -990,6 +996,39 @@
 
   // Смена может закончиться и не в момент хода: покупатель платит, когда его
   // товар долетел до корзины, и план закрывается уже там.
+  /* Подключение к площадке. Вызывается после того, как игра построена и
+     готова принимать игрока: именно этот момент и означает LoadingAPI.ready. */
+  function bootPlatform() {
+    var Y = window.YGames;
+    if (!Y) return;
+
+    // Требования 1.3 и 4.7: на паузе и при потере фокуса игра молчит.
+    Y.onPause(function () {
+      cancelDrag();
+      try { window.ShopAudio && window.ShopAudio.suspend(true); } catch (e) {}
+    });
+    Y.onResume(function () {
+      try { window.ShopAudio && window.ShopAudio.suspend(false); } catch (e) {}
+    });
+
+    Y.init(function () {
+      Y.ready();                       // 1.19.2 — игрок может приступать
+      Y.gameplayStart();               // смена уже идёт с момента загрузки
+      Y.load(function (cloud) {
+        // Облачный прогресс берём, только если он новее локального и от той
+        // же сборки: иначе чужая отметка сборки снесла бы текущую смену.
+        if (!cloud || cloud.build !== BUILD) return;
+        if (!(Number(cloud.savedAt) > (Number(meta.savedAt) || 0))) return;
+        meta = cloud;
+        try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) {}
+        startShift(meta.shiftIdx);
+        rebuildBoard();
+        render();
+        toast('Прогресс восстановлен из облака');
+      });
+    });
+  }
+
   function checkShiftEnd() {
     if (state.status !== 'playing') return;
     if (state.served >= state.goal) finish('won');
@@ -1144,6 +1183,7 @@
 
   function finish(status, reason) {
     cancelDrag();
+    try { window.YGames && window.YGames.gameplayStop(); } catch (e) {}
     state.status = status;
     if (status === 'won') {
       streak += 1;
@@ -1171,19 +1211,33 @@
     showOverlay(status, reason);
   }
 
+  // Смена окончена — это и есть логическая пауза (требование 4.4), в ней
+  // показываем полноэкранную. Частоту показа регулирует сама платформа,
+  // поэтому своего счётчика не держим: просто не зовём её посреди смены.
+  function betweenShifts(go) {
+    var done = false;
+    var run = function () { if (done) return; done = true; go(); };
+    if (!window.YGames) { run(); return; }
+    try { window.YGames.interstitial(run); } catch (e) { run(); }
+  }
+
   function nextShift() {
     hideOverlay();
-    startShift(state.shiftIdx + 1);
-    rebuildBoard();
-    render();
+    betweenShifts(function () {
+      startShift(state.shiftIdx + 1);
+      rebuildBoard();
+      render();
+    });
   }
 
   function retryShift() {
     logEvent('retry', { shift: state.shiftIdx + 1 });
     hideOverlay();
-    startShift(state.shiftIdx, Date.now() & 0xffff);
-    rebuildBoard();
-    render();
+    betweenShifts(function () {
+      startShift(state.shiftIdx, Date.now() & 0xffff);
+      rebuildBoard();
+      render();
+    });
   }
 
   /* -------------------------------------------------------------- геометрия */
@@ -3526,7 +3580,11 @@
       // Статика строится до того, как текстуры загрузились, поэтому после
       // загрузки её надо пересобрать: иначе фон зала и прочая растровая
       // статика не появятся до первого изменения размера окна.
-      loadArt().then(function () { rebuildBoard(); render(); });
+      loadArt().then(function () {
+        rebuildBoard();
+        render();
+        bootPlatform();
+      });
       var resizeTimer = null;
       var onResize = function () {
         fitScale();                            // масштаб подгоняем сразу

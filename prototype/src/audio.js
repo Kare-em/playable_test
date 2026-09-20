@@ -8,6 +8,9 @@
 
   var ctx = null, master = null, noiseBuf = null;
   var muted = false;
+  // Пауза «снаружи»: реклама или потеря фокуса. Отдельно от muted, потому что
+  // это не выбор игрока и не должно затирать его настройку звука.
+  var suspended = false;
   try { muted = localStorage.getItem('shopsort.muted') === '1'; } catch (e) {}
 
   function ensure() {
@@ -16,7 +19,7 @@
     if (!AC) return null;
     try { ctx = new AC(); } catch (e) { return null; }
     master = ctx.createGain();
-    master.gain.value = muted ? 0 : 0.55;
+    master.gain.value = (muted || suspended) ? 0 : 0.55;
     master.connect(ctx.destination);
     return ctx;
   }
@@ -65,7 +68,7 @@
   var SCALE = [0, 4, 7, 12];               // мажорное трезвучие для продажи
 
   function play(name, param) {
-    if (muted) return;
+    if (muted || suspended) return;
     var c = ensure(); if (!c) return;
     switch (name) {
       case 'select':
@@ -118,9 +121,16 @@
     unlock: function () { var c = ensure(); if (c && c.state === 'suspended') c.resume(); },
     play: play,
     isMuted: function () { return muted; },
+    // Требование площадки: при потере фокуса и на время рекламы звук молчит.
+    suspend: function (on) {
+      suspended = !!on;
+      if (master) master.gain.value = (muted || suspended) ? 0 : 0.55;
+      var c = master && master.context;
+      if (c) { if (suspended) { try { c.suspend(); } catch (e) {} } else { try { c.resume(); } catch (e) {} } }
+    },
     toggle: function () {
       muted = !muted;
-      if (master) master.gain.value = muted ? 0 : 0.55;
+      if (master) master.gain.value = (muted || suspended) ? 0 : 0.55;
       try { localStorage.setItem('shopsort.muted', muted ? '1' : '0'); } catch (e) {}
       if (!muted) play('button');
       return muted;
