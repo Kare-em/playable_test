@@ -46,6 +46,16 @@ const TARGETS = [
 ];
 const targetFor = (id) => (TARGETS.find(([re]) => re.test(id)) || [null, 512, 512]).slice(1);
 
+// Доля высоты, которая остаётся от вырезанной фигуры. Промпт B1 просит
+// «head and shoulders», но на часть бюстов генератор всё равно выдал фигуру
+// в полный рост: в карточке такой персонаж вписывается по ширине, ноги
+// уходят в обрубок под ведром и читаются короткими. Режем снизу до пояса —
+// получается бюст, как у остальных типажей.
+const KEEP_TOP = {
+  'bust-dacha': 0.87      // дачник с ведром: срез сразу под ведром, сапоги долой
+};
+const keepTopFor = (id) => KEEP_TOP[id] || 1;
+
 const scale = Number(flag('scale', 2)) || 2;
 const quality = Number(flag('quality', 0.82)) || 0.82;
 const format = String(flag('format', 'webp'));
@@ -100,7 +110,7 @@ for (const id of ids) {
 
   // Пересэмплинг в два прохода: при уменьшении сразу в 4+ раза Chromium
   // заметно мылит, половинное деление держит контур чётким.
-  const out = await page.evaluate(async ({ dataUri, tw, th, scale, mime, quality, cutout }) => {
+  const out = await page.evaluate(async ({ dataUri, tw, th, scale, mime, quality, cutout, keepTop }) => {
     const img = new Image();
     img.src = dataUri;
     await img.decode();
@@ -140,7 +150,13 @@ for (const id of ids) {
         push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
       }
       ctx.putImageData(im, 0, 0);
-      let minX = w, minY = h, maxX = -1, maxY = -1;   // границы непрозрачного
+      return opaqueBox(ctx, w, h);
+    };
+
+    // Границы непрозрачного: нужны и после выбивания фона, и после среза ног.
+    const opaqueBox = (ctx, w, h) => {
+      const d = ctx.getImageData(0, 0, w, h).data;
+      let minX = w, minY = h, maxX = -1, maxY = -1;
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
           if (d[(y * w + x) * 4 + 3] > 8) {
@@ -169,6 +185,20 @@ for (const id of ids) {
       } else {
         source = full;
       }
+      if (keepTop < 1) {
+        // срезаем низ, потом подрезаем поля заново: без нижней части фигура
+        // обычно становится уже, и старые боковые поля ушли бы в пустоту
+        const nh = Math.max(1, Math.round(sh * keepTop));
+        const cut = document.createElement('canvas');
+        cut.width = sw; cut.height = nh;
+        const cctx = cut.getContext('2d', { willReadFrequently: true });
+        cctx.drawImage(source, 0, 0, sw, nh, 0, 0, sw, nh);
+        const cb = opaqueBox(cctx, sw, nh) || { x: 0, y: 0, w: sw, h: nh };
+        const tight = document.createElement('canvas');
+        tight.width = cb.w; tight.height = cb.h;
+        tight.getContext('2d').drawImage(cut, cb.x, cb.y, cb.w, cb.h, 0, 0, cb.w, cb.h);
+        source = tight; sw = cb.w; sh = cb.h;
+      }
     }
     const box = { w: tw * scale, h: th * scale };
     const k = Math.min(box.w / sw, box.h / sh, 1);
@@ -194,7 +224,7 @@ for (const id of ids) {
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(cur, 0, 0, canvas.width, canvas.height);
     return { uri: canvas.toDataURL(mime, quality), w: canvas.width, h: canvas.height };
-  }, { dataUri, tw, th, scale, mime: MIME[fmt], quality, cutout });
+  }, { dataUri, tw, th, scale, mime: MIME[fmt], quality, cutout, keepTop: keepTopFor(id) });
 
   const bytes = Buffer.from(out.uri.split(',')[1], 'base64');
   await writeFile(new URL(outFile, outDir), bytes);
