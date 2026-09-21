@@ -1435,19 +1435,31 @@
   // сверху, а не отъедает портрет: иначе персонажи мельчают.
   function faceW() { return spineBand() + Math.max(84, Math.min(116, Math.round(queueW() * 0.5))); }
 
+  // Пузырь настроения: радиус нужен не только отрисовке. Верхняя строка
+  // карточки — это пузырь и подпись настроения напротив него, а корзина
+  // заказа начинается под ними, поэтому размеры считаются в одном месте.
+  function bubbleR() { return Math.max(15, Math.min(23, Math.round(queueH() * 0.135))); }
+  function infoY() { return bubbleR() + 5; }
+
+  // Полоса под корзину: от пузыря сверху до полосы терпения снизу. Верх
+  // отмеряется от пузыря, а не от подписи, и не зависит от того, показана ли
+  // эмоция: иначе корзина прыгала бы вверх-вниз при смене настроения.
+  function orderBand() {
+    return { top: Math.max(infoY() + 14, bubbleR() * 2 + 12), bottom: queueH() - 34 };
+  }
+
   // Радиус значка в корзине и центр позиции li. Один расчёт и для отрисовки
   // карточки, и для точки, куда летит забранный товар.
   function orderIconR(n) {
-    var qw = queueW(), qh = queueH();
-    return Math.min(30, Math.floor((qh - 57) / 2.25),
-                    Math.floor((qw - faceW() - 6 - 10 * (n - 1)) / (2 * n)));
+    var qw = queueW(), band = orderBand();
+    return Math.max(6, Math.min(30, Math.floor((band.bottom - band.top) / 2),
+                    Math.floor((qw - faceW() - 6 - 10 * (n - 1)) / (2 * n))));
   }
   function orderIconSpot(qi, li, n) {
-    var qh = queueH(), r = orderIconR(n), top = 8 + r;
-    var infoY = Math.max(top + r * 1.25 + 12, qh - 44);
+    var r = orderIconR(n), band = orderBand();
     return {
       x: queueX(qi) + faceW() - 6 + r + li * (r * 2 + 10),
-      y: queueY(qi) + (top + (infoY - 12 - r * 1.25)) / 2,
+      y: queueY(qi) + (band.top + band.bottom) / 2,
       w: r * 1.55, h: r * 1.55
     };
   }
@@ -2770,6 +2782,9 @@
       var counts = trayCounts();
 
       var fw = faceW(), sb = spineBand();
+      // Пузырь стоит верхом на правом краю полосы портрета: хвост дотягивается
+      // до головы, а правее него в той же строке живёт подпись настроения.
+      var br = bubbleR(), bubCx = fw - 4;
       var face = personPortrait(fw - sb - 10, qh - 12, c.face, mood);
       face.x = sb + (fw - sb) / 2; face.y = qh - 4;
       box.addChild(face);
@@ -2781,9 +2796,9 @@
       // под корзиной остаются строка настроения и полоса терпения.
       var r = orderIconR(lines.length);
       var step = r * 2 + 10;
-      var x0 = fw - 6 + r, top = 8 + r;
-      var infoY = Math.max(top + r * 1.25 + 12, qh - 44);
-      var cy = (top + (infoY - 12 - r * 1.25)) / 2;   // корзина по центру свободного места
+      var band = orderBand(), iy = infoY();
+      var x0 = fw - 6 + r;
+      var cy = (band.top + band.bottom) / 2;          // корзина по центру своей полосы
       lines.forEach(function (l, li) {
         var lp = productById(l.id);
         var cx = x0 + li * step;
@@ -2819,12 +2834,20 @@
       });
 
       var reward = label('+50%', 14, C.green, '800');
-      reward.anchor.set(1, 0.5); reward.x = qw - 14; reward.y = infoY;
+      reward.anchor.set(1, 0.5); reward.x = qw - 14; reward.y = iy;
       box.addChild(reward);
 
-      // настроение подписью: покупателю видно, что он вот-вот уйдёт
+      // Настроение подписью: покупателю видно, что он вот-вот уйдёт. Стоит в
+      // одной строке с пузырём и прижато к множителю, а не к полосе портрета:
+      // слева в этой строке живёт пузырь, и левое выравнивание либо наезжало
+      // бы на него, либо оставляло бы под него дыру на карточках без эмоции.
       var note = label(moodWord(mood), 12, mood === 'angry' ? C.red : C.inkSoft, '700');
-      note.anchor.set(0, 0.5); note.x = fw + 2; note.y = infoY;
+      note.anchor.set(1, 0.5); note.x = reward.x - reward.width - 12; note.y = iy;
+      // На узкой карточке (горизонт от 258 px) длинное «вот-вот уйдёт» между
+      // пузырём и множителем не помещается — ужимаем подпись, а не двигаем
+      // пузырь: его место задано портретом, а не свободным местом в строке.
+      var freeW = note.x - (bubCx + br + 8);
+      if (note.width > freeW) note.scale.set(Math.max(0.72, freeW / note.width));
       box.addChild(note);
 
       var by = qh - 28, bx = fw + 2, bw = qw - bx - 14;
@@ -2844,18 +2867,8 @@
       // пережить перерисовку — иначе пузырь дёргается на каждый ход.
       if (!c.uid) c.uid = ++customerSeq;
 
-      // Пузырь ужимается вместе с карточкой: на портрете она вдвое ниже,
-      // и кружок постоянного радиуса залезал персонажу на лицо.
-      // Реакция занимает чуть больше половины диаметра пузыря: остальное —
-      // обводка и поле. При прежних 0.105 высоты значок выходил под 20 px и
-      // читался с трудом, поэтому доля поднята, а потолок отодвинут.
-      var br = Math.max(15, Math.min(23, Math.round(qh * 0.135)));
       var bub = c.cheer > 0 ? 'cheer' : (mood === 'angry' ? 'angry' : (mood === 'worry' ? 'worry' : null));
-      // Отступ от правого края полосы портрета: при 6 пузырь сидел слишком
-      // глубоко на волосах персонажа. Дальше вправо не уводим — там начинается
-      // корзина заказа. Впритык она не мешает: пузырь и первый значок —
-      // окружности, и расходятся по диагонали, но запас там уже небольшой.
-      if (bub) box.addChild(emotionBubble(fw - br - 2, br + 5, bub, br, c.uid));
+      if (bub) box.addChild(emotionBubble(bubCx, iy, bub, br, c.uid));
 
       var tx = queueX(i), ty = queueY(i), prev = queueSpots[c.uid];
       if (!prev) queueCardIn(box, c.uid, qw, qh, tx, ty);
