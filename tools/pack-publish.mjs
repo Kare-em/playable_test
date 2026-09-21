@@ -60,11 +60,13 @@ const ITEMS = [
 
 // Видео для первой публикации не обязательно, поэтому его отсутствие не
 // валит сборку архива — только отмечается в отчёте.
+// По одному формату на ролик, а не оба: mp4 играется везде, webm нужен только
+// там, где его специально просят, а вдвоём они утяжеляют архив вдвое. Оригиналы
+// обоих форматов остаются в dist/store/video/.
 const OPTIONAL = [];
 for (const name of VIDEO) {
-  for (const ext of ['webm', 'mp4']) {
-    OPTIONAL.push([`dist/store/video/${name}.${ext}`, `video/${name}.${ext}`, 'node tools/video.mjs']);
-  }
+  OPTIONAL.push([`dist/store/video/${name}.mp4`, `video/${name}.mp4`, 'node tools/video.mjs']);
+  OPTIONAL.push([`dist/store/video/${name}.webm`, `video/${name}.webm`, 'node tools/video.mjs']);
 }
 
 const missing = [];
@@ -72,7 +74,12 @@ for (const [src, , how] of ITEMS) {
   if (await mtime(src) === null) missing.push(how ? `${src} — ${how}` : src);
 }
 const haveVideo = [];
-for (const item of OPTIONAL) if (await mtime(item[0]) !== null) haveVideo.push(item);
+const packed = new Set();
+for (const item of OPTIONAL) {
+  const name = item[1].replace(/\.(mp4|webm)$/, '');
+  if (packed.has(name)) continue;                 // mp4 идёт первым, webm — только если mp4 нет
+  if (await mtime(item[0]) !== null) { haveVideo.push(item); packed.add(name); }
+}
 if (missing.length) {
   console.error('ОШИБКА: не хватает материалов:');
   missing.forEach((m) => console.error('  - ' + m));
@@ -137,8 +144,8 @@ const README = `Магазин у дома — материалы для пуб�
   screenshots/tablet/      1600x1200, планшет (4:3)
                            внутри каждой — ru/ и en/, по пять кадров
 ${haveVideo.length ? `
-  video/                   игровое видео, <раскладка>-<язык>; webm и mp4,
-                           без звука — дорожку кладут при монтаже
+  video/                   игровое видео, <раскладка>-<язык>, без звука:
+                           дорожку кладут при монтаже
 ` : ''}
 
   texts/store-card.md      названия, описания, теги, возрастной рейтинг,
