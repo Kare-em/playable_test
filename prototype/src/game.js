@@ -2851,7 +2851,11 @@
       // читался с трудом, поэтому доля поднята, а потолок отодвинут.
       var br = Math.max(15, Math.min(23, Math.round(qh * 0.135)));
       var bub = c.cheer > 0 ? 'cheer' : (mood === 'angry' ? 'angry' : (mood === 'worry' ? 'worry' : null));
-      if (bub) box.addChild(emotionBubble(fw - br - 6, br + 5, bub, br, c.uid));
+      // Отступ от правого края полосы портрета: при 6 пузырь сидел слишком
+      // глубоко на волосах персонажа. Дальше вправо не уводим — там начинается
+      // корзина заказа. Впритык она не мешает: пузырь и первый значок —
+      // окружности, и расходятся по диагонали, но запас там уже небольшой.
+      if (bub) box.addChild(emotionBubble(fw - br - 2, br + 5, bub, br, c.uid));
 
       var tx = queueX(i), ty = queueY(i), prev = queueSpots[c.uid];
       if (!prev) queueCardIn(box, c.uid, qw, qh, tx, ty);
