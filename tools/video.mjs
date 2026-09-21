@@ -22,6 +22,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const run = promisify(execFile);
+import { fileURLToPath } from 'node:url';            // на Windows URL.pathname даёт /D:/... — fs такой путь не понимает
 const root = new URL('../', import.meta.url);
 const { chromium } = await import('playwright').catch(() =>
   import('/opt/node22/lib/node_modules/playwright/index.mjs'));
@@ -47,7 +48,7 @@ const candidates = [
   flag('ffmpeg'),
   process.env.FFMPEG,
   'ffmpeg',
-  new URL('node_modules/ffmpeg-static/ffmpeg', root).pathname,
+  fileURLToPath(new URL('node_modules/ffmpeg-static/ffmpeg', root)),
   '/opt/node22/lib/node_modules/ffmpeg-static/ffmpeg'
 ].filter(Boolean);
 
@@ -71,7 +72,7 @@ async function record(layout, locale, lang) {
     viewport: { width: layout.w, height: layout.h },
     deviceScaleFactor: 1,
     locale,
-    recordVideo: { dir: raw.pathname, size: { width: layout.w, height: layout.h } }
+    recordVideo: { dir: fileURLToPath(raw), size: { width: layout.w, height: layout.h } }
   });
   const page = await ctx.newPage();
   const errors = [];
@@ -134,9 +135,9 @@ for (const layout of LAYOUTS) {
     if (ffmpeg) {
       const mp4 = new URL(webm.pathname.replace(/\.webm$/, '.mp4'), out);
       // yuv420p и faststart — иначе часть плееров и соцсетей не откроют файл
-      await run(ffmpeg, ['-y', '-i', webm.pathname, '-r', '30',
+      await run(ffmpeg, ['-y', '-i', fileURLToPath(webm), '-r', '30',
         '-c:v', 'libx264', '-preset', 'slow', '-crf', '21', '-pix_fmt', 'yuv420p',
-        '-movflags', '+faststart', '-an', mp4.pathname]);
+        '-movflags', '+faststart', '-an', fileURLToPath(mp4)]);
       const m = (await stat(mp4)).size;
       console.log(`  ${mp4.pathname.split('/').pop()} — ${(m / 1024 / 1024).toFixed(2)} МБ`);
       made.push(mp4);

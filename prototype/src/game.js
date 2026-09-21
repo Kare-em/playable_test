@@ -2838,12 +2838,17 @@
       pt.anchor.set(0.5); pt.x = bx + bw / 2; pt.y = by + 10;
       box.addChild(pt);
 
-      if (c.cheer > 0) box.addChild(emotionBubble(fw - 18, 16, 'cheer'));
-      else if (mood === 'angry') box.addChild(emotionBubble(fw - 18, 16, 'angry'));
-      else if (mood === 'worry') box.addChild(emotionBubble(fw - 18, 16, 'worry'));
-
-      // покупатель, сохранённый до появления uid, получает его здесь
+      // покупатель, сохранённый до появления uid, получает его здесь.
+      // Идёт до пузыря: от uid берётся фаза его покачивания, и она должна
+      // пережить перерисовку — иначе пузырь дёргается на каждый ход.
       if (!c.uid) c.uid = ++customerSeq;
+
+      // Пузырь ужимается вместе с карточкой: на портрете она вдвое ниже,
+      // и кружок постоянного радиуса залезал персонажу на лицо.
+      var br = Math.max(12, Math.min(17, Math.round(qh * 0.105)));
+      var bub = c.cheer > 0 ? 'cheer' : (mood === 'angry' ? 'angry' : (mood === 'worry' ? 'worry' : null));
+      if (bub) box.addChild(emotionBubble(fw - br - 6, br + 5, bub, br, c.uid));
+
       var tx = queueX(i), ty = queueY(i), prev = queueSpots[c.uid];
       if (!prev) queueCardIn(box, c.uid, qw, qh, tx, ty);
       else if (Math.abs(prev.x - tx) > 0.5 || Math.abs(prev.y - ty) > 0.5) {
