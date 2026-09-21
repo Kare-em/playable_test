@@ -5,3 +5,4 @@ dist/
 art/raw/*
 !art/raw/manifest.json
 !art/raw/products.json
+!art/raw/bubble.json

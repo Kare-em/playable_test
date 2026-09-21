@@ -1536,7 +1536,7 @@
 
   /* -------------------------------------------------------- примитивы сцены */
 
-  var app, root, layers = {}, hud = {}, zoneNodes = {}, beltNodes = [];
+  var app, root, layers = {}, hud = {}, zoneNodes = {}, beltNodes = [], bubbleNodes = [];
   var toastBox, overlay, TEXTURES = {};
   var hiddenSlots = {}, pendingSaleFx = null, shownRevenue = 0, selectedNode = null, signNode = null;
   var pendingPickups = [];       // перелёты к покупателям, ждущие посадки выложенного товара
@@ -2246,7 +2246,7 @@
     root.removeChildren().forEach(function (k) {
       try { k.destroy({ children: true }); } catch (e) {}
     });
-    layers = {}; hud = {}; zoneNodes = {}; beltNodes = [];
+    layers = {}; hud = {}; zoneNodes = {}; beltNodes = []; bubbleNodes = [];
     selectedNode = null; signNode = null; toastBox = null; overlay = null;
     buildStatic();
     render();
@@ -2514,6 +2514,7 @@
     layers.beltItems.removeChildren();
     layers.buttons.removeChildren();
     beltNodes = [];
+    bubbleNodes = [];
     selectedNode = null;
 
     renderHud();
@@ -2876,27 +2877,64 @@
   }
 
   // Пузырь эмоции рядом с лицом — сердечко, капля или знак раздражения.
-  function emotionBubble(x, y, kind) {
+  // Пузырь эмоции берётся готовым спрайтом из атласа: реакция вложена в контур
+  // ещё при сборке арта (tools/gen-bubble-atlas.mjs), по измеренной полости.
+  // Контур один на все три состояния — при смене настроения меняется только
+  // начинка, а сам пузырь не прыгает и не меняет форму.
+  //
+  // Спрайт сведён так, что центр ТЕЛА пузыря совпадает с центром холста:
+  // поэтому здесь хватает anchor 0.5 и ширины по диаметру, а хвост свисает
+  // сам — ни одной подогнанной руками координаты.
+  //
+  // Нет текстуры (арт не собрался) — рисуем вектором, как раньше.
+  function emotionBubble(x, y, kind, r, uid) {
+    r = r || 15;
+    var tex = TEXTURES['bubble-' + kind], node;
+    if (tex) {
+      node = new PIXI.Sprite(tex);
+      node.anchor.set(0.5);
+      node.width = r * 2;
+      node.height = r * 2 * (tex.height / tex.width);
+      // На листе хвост нарисован вниз-вправо, а пузырь висит справа над
+      // головой — то есть хвост смотрел бы в сторону от покупателя. Зеркалим,
+      // и он указывает на того, чьё это настроение.
+      node.scale.x = -node.scale.x;
+    } else {
+      node = bubbleVector(kind);
+      node.scale.set(r / 15);
+    }
+    node.x = x;
+    node.y = node.baseY = y;
+    // Фаза качания привязана к покупателю: карточка перерисовывается на каждый
+    // ход, и без привязки пузырь прыгал бы в случайную точку качания.
+    node.phase = ((uid || 1) * 2.399) % (Math.PI * 2);
+    bubbleNodes.push(node);
+    return node;
+  }
+
+  // Запасной вектор — тот же, что был до растрового пузыря, но рисуется от
+  // нуля: и спрайт, и он качаются вокруг собственного центра.
+  function bubbleVector(kind) {
     var g = new PIXI.Graphics();
-    g.circle(x, y, 15).fill(kind === 'cheer' ? 0xFFEFF3 : (kind === 'angry' ? 0xFFE6E2 : 0xEAF2F8));
-    g.circle(x, y, 15).stroke({ width: 2.5, color: C.ink, alpha: 0.75 });
+    g.circle(0, 0, 15).fill(kind === 'cheer' ? 0xFFEFF3 : (kind === 'angry' ? 0xFFE6E2 : 0xEAF2F8));
+    g.circle(0, 0, 15).stroke({ width: 2.5, color: C.ink, alpha: 0.75 });
     if (kind === 'cheer') {
-      g.moveTo(x, y + 6)
-       .quadraticCurveTo(x - 10, y - 2, x - 4, y - 7)
-       .quadraticCurveTo(x, y - 10, x, y - 4)
-       .quadraticCurveTo(x, y - 10, x + 4, y - 7)
-       .quadraticCurveTo(x + 10, y - 2, x, y + 6)
+      g.moveTo(0, 6)
+       .quadraticCurveTo(-10, -2, -4, -7)
+       .quadraticCurveTo(0, -10, 0, -4)
+       .quadraticCurveTo(0, -10, 4, -7)
+       .quadraticCurveTo(10, -2, 0, 6)
        .fill(0xE2456A);
     } else if (kind === 'angry') {
       [[-1, -1], [1, -1]].forEach(function (d) {
-        g.moveTo(x + d[0] * 7, y + d[1] * 7).lineTo(x + d[0] * 1, y + d[1] * 1)
+        g.moveTo(d[0] * 7, d[1] * 7).lineTo(d[0] * 1, d[1] * 1)
          .stroke({ width: 3, color: C.red, cap: 'round' });
       });
-      g.moveTo(x - 7, y + 2).lineTo(x - 1, y + 8).stroke({ width: 3, color: C.red, cap: 'round' });
-      g.moveTo(x + 7, y + 2).lineTo(x + 1, y + 8).stroke({ width: 3, color: C.red, cap: 'round' });
+      g.moveTo(-7, 2).lineTo(-1, 8).stroke({ width: 3, color: C.red, cap: 'round' });
+      g.moveTo(7, 2).lineTo(1, 8).stroke({ width: 3, color: C.red, cap: 'round' });
     } else {
-      g.moveTo(x, y - 8).quadraticCurveTo(x + 7, y + 2, x, y + 8)
-       .quadraticCurveTo(x - 7, y + 2, x, y - 8).fill(0x5AA8DC);
+      g.moveTo(0, -8).quadraticCurveTo(7, 2, 0, 8)
+       .quadraticCurveTo(-7, 2, 0, -8).fill(0x5AA8DC);
     }
     return g;
   }
@@ -3735,6 +3773,12 @@
         if (selectedNode && !selectedNode.destroyed) {
           selectedNode.scale.set(1.06 + Math.sin(clock * 7) * 0.035);
           selectedNode.rotation = Math.sin(clock * 3.5) * 0.03;
+        }
+        for (var m = 0; m < bubbleNodes.length; m++) {
+          var bn = bubbleNodes[m];
+          if (bn.destroyed) continue;
+          bn.y = bn.baseY + Math.sin(clock * 2.4 + bn.phase) * 2;
+          bn.rotation = Math.sin(clock * 1.6 + bn.phase) * 0.07;
         }
         if (signNode) signNode.y = Math.sin(clock * 1.1) * 2.5;
       });

@@ -1,0 +1,75 @@
+{
+  "sheet": "bubble-sheet.jpg",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "createdAt": "2026-09-21T09:41:39.644Z",
+  "parts": {
+    "bubble": {
+      "file": "bubblepart-bubble.webp",
+      "size": "316x320",
+      "bytes": 10324
+    },
+    "cheer": {
+      "file": "bubblepart-cheer.webp",
+      "size": "320x273",
+      "bytes": 12690
+    },
+    "angry": {
+      "file": "bubblepart-angry.webp",
+      "size": "320x320",
+      "bytes": 20836
+    },
+    "worry": {
+      "file": "bubblepart-worry.webp",
+      "size": "211x320",
+      "bytes": 10116
+    }
+  },
+  "bubble-cheer": {
+    "file": "bubble-cheer.webp",
+    "size": "316x351",
+    "bytes": 16182,
+    "cavity": {
+      "x": 13,
+      "y": 11,
+      "w": 290,
+      "h": 289
+    },
+    "body": {
+      "top": 61,
+      "bottom": 228,
+      "width": 316
+    }
+  },
+  "bubble-angry": {
+    "file": "bubble-angry.webp",
+    "size": "316x351",
+    "bytes": 18508,
+    "cavity": {
+      "x": 13,
+      "y": 11,
+      "w": 290,
+      "h": 289
+    },
+    "body": {
+      "top": 61,
+      "bottom": 228,
+      "width": 316
+    }
+  },
+  "bubble-worry": {
+    "file": "bubble-worry.webp",
+    "size": "316x351",
+    "bytes": 15246,
+    "cavity": {
+      "x": 13,
+      "y": 11,
+      "w": 290,
+      "h": 289
+    },
+    "body": {
+      "top": 61,
+      "bottom": 228,
+      "width": 316
+    }
+  }
+}

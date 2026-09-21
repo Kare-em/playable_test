@@ -50,6 +50,38 @@ export const STYLE_BACKDROP = [
 
 const CUTOUT = 'isolated subject on plain flat background, wide empty margin around the subject';
 
+// Интерфейсные знаки — пузырь эмоции и реакции в нём. Рисуются тем же
+// материалом, что и остальной арт (RENDER), но композиция другая: это не
+// предмет на полке, а значок, который живёт размером с ноготь. Поэтому
+// силуэт грубее, контур толще, деталей меньше — иначе на 30 пикселях
+// превращается в кашу.
+export const STYLE_UI = [
+  ...RENDER,
+  'this is a chunky game UI symbol, not an object study: one bold simple shape, '
+    + 'thick soft dark outline, strong flat colour with a single soft highlight',
+  'must stay readable at the size of a thumbnail, so no fine detail, no thin lines, no texture noise',
+  'warm soft lighting from the upper left',
+  'plain pale cream background, the soft warm off-white of unbleached paper',
+  'no drop shadow and no contact shadow on the background',
+  // из общего запрета убран «NO UI elements»: здесь знак интерфейса и есть
+  // предмет заказа, и запрет спорил бы сам с собой
+  NO_TEXT.replace(', NO UI elements', '')
+].join(', ');
+
+// Порядок важен: нарезка отдаёт предметы слева направо, и по нему же
+// раскладываются id. Пузырь идёт первым и остаётся пустым — реакции
+// вкладываются в него уже на сборке, по измеренной полости.
+export const BUBBLE_PARTS = [
+  ['bubble', 'an EMPTY rounded speech balloon, almost circular, with a short tail at the bottom. '
+    + 'Its inside is a single flat creamy white field and is COMPLETELY EMPTY — absolutely nothing is '
+    + 'drawn, written or placed inside the balloon. Thick warm dark brown outline around it'],
+  ['cheer', 'a single glossy red heart, plump and rounded, one soft white highlight'],
+  ['angry', 'a bright red anger vein symbol: one connected cross-shaped mark of four thick joined '
+    + 'strokes, the classic comic anger sign, drawn as a single solid shape'],
+  ['worry', 'a single glossy light blue sweat drop, rounded at the bottom and pointed at the top, '
+    + 'one soft white highlight']
+];
+
 // ---------------------------------------------------------------- персонажи
 // 10 постоянных покупателей из концепта (docs/game-concept-shop-sort.md, §5)
 const CUSTOMERS = {
