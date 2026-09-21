@@ -42,6 +42,8 @@ const newestIn = async (dir, re) => {
 /* ------------------------------------------------------------- комплектность */
 // Что кладём, куда и чем это делается, если файла нет.
 const SHOTS = [1, 2, 3, 4, 5];
+const SHOT_LAYOUTS = ['mobile', 'desktop', 'tablet'];
+const VIDEO = ['desktop-ru', 'desktop-en', 'mobile-ru', 'mobile-en'];
 const ITEMS = [
   ['dist/yandex.zip',              'game/yandex.zip',             'node tools/build-yandex.mjs'],
   ['dist/store/icon-1024.png',     'icon/icon-1024.png',          'node tools/store-art.mjs'],
@@ -50,16 +52,27 @@ const ITEMS = [
   ['dist/store/cover-16x9-1920.png', 'cover/cover-16x9-1920.png', 'node tools/store-art.mjs'],
   ['dist/store/cover-3x2-1800.png',  'cover/cover-3x2-1800.png',  'node tools/store-art.mjs'],
   ['dist/store/cover-2x1-1600.png',  'cover/cover-2x1-1600.png',  'node tools/store-art.mjs'],
-  ...SHOTS.map((i) => [`dist/store/ru/shot-${i}.png`, `screenshots/ru/shot-${i}.png`, 'node tools/shots.mjs']),
-  ...SHOTS.map((i) => [`dist/store/en/shot-${i}.png`, `screenshots/en/shot-${i}.png`, 'node tools/shots.mjs']),
+  ...SHOT_LAYOUTS.flatMap((L) => ['ru', 'en'].flatMap((lang) => SHOTS.map((i) =>
+    [`dist/store/shots/${L}/${lang}/shot-${i}.png`, `screenshots/${L}/${lang}/shot-${i}.png`, 'node tools/shots.mjs']))),
   ['docs/store-card.md',           'texts/store-card.md',         null],
   ['docs/yandex-publish.md',       'texts/checklist.md',          null]
 ];
+
+// Видео для первой публикации не обязательно, поэтому его отсутствие не
+// валит сборку архива — только отмечается в отчёте.
+const OPTIONAL = [];
+for (const name of VIDEO) {
+  for (const ext of ['webm', 'mp4']) {
+    OPTIONAL.push([`dist/store/video/${name}.${ext}`, `video/${name}.${ext}`, 'node tools/video.mjs']);
+  }
+}
 
 const missing = [];
 for (const [src, , how] of ITEMS) {
   if (await mtime(src) === null) missing.push(how ? `${src} — ${how}` : src);
 }
+const haveVideo = [];
+for (const item of OPTIONAL) if (await mtime(item[0]) !== null) haveVideo.push(item);
 if (missing.length) {
   console.error('ОШИБКА: не хватает материалов:');
   missing.forEach((m) => console.error('  - ' + m));
@@ -77,13 +90,17 @@ if (code.t > buildT) stale.push(`dist/yandex.zip старее ${code.who} — no
 
 // Скриншоты снимаются с готовой сборки, значит должны быть не старее её.
 const pageT = await mtime('dist/yandex/index.html');
-for (const lang of ['ru', 'en']) {
-  for (const i of SHOTS) {
-    if (await mtime(`dist/store/${lang}/shot-${i}.png`) < pageT) {
-      stale.push(`скриншоты ${lang} сняты до текущей сборки — node tools/shots.mjs`);
-      break;
+for (const L of SHOT_LAYOUTS) {
+  let old = false;
+  for (const lang of ['ru', 'en']) {
+    for (const i of SHOTS) {
+      if (await mtime(`dist/store/shots/${L}/${lang}/shot-${i}.png`) < pageT) { old = true; break; }
     }
   }
+  if (old) stale.push(`скриншоты ${L} сняты до текущей сборки — node tools/shots.mjs`);
+}
+for (const [src] of haveVideo) {
+  if (await mtime(src) < pageT) { stale.push('видео снято до текущей сборки — node tools/video.mjs'); break; }
 }
 
 // Иконка и обложка режутся из арта — если арт переснят, их надо пересобрать.
@@ -101,7 +118,7 @@ if (stale.length) {
 /* ------------------------------------------------------------------ раскладка */
 const out = 'dist/publish/';
 await rm(at(out), { recursive: true, force: true });
-for (const [src, dst] of ITEMS) {
+for (const [src, dst] of [...ITEMS, ...haveVideo]) {
   await mkdir(new URL(out + dst.slice(0, dst.lastIndexOf('/') + 1), root), { recursive: true });
   await cp(at(src), at(out + dst));
 }
@@ -114,8 +131,15 @@ const README = `Магазин у дома — материалы для пуб�
   game/yandex.zip          загрузить как архив игры (index.html лежит в корне)
   icon/icon-1024.png       иконка игры; 512 и 256 — если форма попросит меньше
   cover/cover-16x9-1920    обложка; рядом 3x2 и 2x1 под другие пропорции
-  screenshots/ru/          пять кадров для русской карточки
-  screenshots/en/          те же пять для английской
+
+  screenshots/mobile/      720x1280, телефон (9:16)
+  screenshots/desktop/     1920x1080, десктоп и телевизор (16:9)
+  screenshots/tablet/      1600x1200, планшет (4:3)
+                           внутри каждой — ru/ и en/, по пять кадров
+${haveVideo.length ? `
+  video/                   игровое видео, <раскладка>-<язык>; webm и mp4,
+                           без звука — дорожку кладут при монтаже
+` : ''}
 
   texts/store-card.md      названия, описания, теги, возрастной рейтинг,
                            переключатели рекламы и облачных сохранений —

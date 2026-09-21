@@ -15,10 +15,15 @@
  * Перед каждым кадром выдерживается пауза, чтобы всплывающие эффекты и
  * тосты успели погаснуть — иначе они лезут в кадр случайным мусором.
  *
- * Размер 720x1280 — портретная сцена игры. Точное число и размер кадров
- * сверяются в форме черновика.
+ * Три раскладки, потому что игра перестраивается под пропорции экрана, а не
+ * растягивает одну картинку: в портрете очередь идёт в два столбца над
+ * прилавком, в горизонте — колонкой слева. Кадры с телефона на витрине
+ * десктопа выглядят чужими, поэтому снимается каждая раскладка отдельно.
+ * Размеры взяты по пропорциям, а не по устройствам: 16:9 покрывает и десктоп,
+ * и телевизор, 4:3 — планшет. Точное число и размер кадров сверяются в форме
+ * черновика, поэтому берём с запасом — уменьшить всегда можно.
  *
- * Результат: dist/store/ru/shot-1..5.png и dist/store/en/shot-1..5.png
+ * Результат: dist/store/shots/<раскладка>/<язык>/shot-1..5.png
  */
 import { mkdir, rm } from 'node:fs/promises';
 
@@ -27,20 +32,29 @@ const { chromium } = await import('playwright').catch(() =>
 
 const SETTLE = 2600;          // столько живут попап заказа и тост списания
 
-async function series(locale, dir) {
-  const out = new URL('../dist/store/' + dir + '/', import.meta.url);
+export const LAYOUTS = [
+  { id: 'mobile',  w: 720,  h: 1280, note: 'телефон, 9:16' },
+  { id: 'desktop', w: 1920, h: 1080, note: 'десктоп и телевизор, 16:9' },
+  { id: 'tablet',  w: 1600, h: 1200, note: 'планшет, 4:3' }
+];
+export const LANGS = [['ru-RU', 'ru'], ['en-US', 'en']];
+
+async function series(locale, lang, layout) {
+  const dir = layout.id + '/' + lang;
+  const out = new URL('../dist/store/shots/' + dir + '/', import.meta.url);
   await rm(out, { recursive: true, force: true });
   await mkdir(out, { recursive: true });
 
   const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 720, height: 1280 }, deviceScaleFactor: 1, locale });
+  const page = await browser.newPage({ viewport: { width: layout.w, height: layout.h }, deviceScaleFactor: 1, locale });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(new URL('../dist/yandex/index.html', import.meta.url).href);
   await page.waitForFunction(() => window.__proto, null, { timeout: 20000 });
   await page.waitForTimeout(2000);
 
-  const lang = await page.evaluate(() => window.I18N.get());
+  const got = await page.evaluate(() => window.I18N.get());
+  if (got !== lang) console.log(`  ВНИМАНИЕ: игра выбрала язык ${got}, ожидался ${lang}`);
   const shot = async (n, note) => {
     await page.waitForTimeout(SETTLE);
     await page.screenshot({ path: new URL('shot-' + n + '.png', out).pathname });
@@ -79,7 +93,7 @@ async function series(locale, dir) {
     P.select('belt', 0); P.select('belt', 0);        // перерисовка без изменения хода
   });
 
-  console.log(`локаль ${locale} -> язык игры ${lang}`);
+  console.log(`${layout.id} ${layout.w}x${layout.h} (${layout.note}), локаль ${locale} -> язык игры ${lang}`);
   await shot(1, 'старт смены: прилавок, очередь, завоз');
 
   await play(5, 260);
@@ -110,6 +124,10 @@ async function series(locale, dir) {
   await browser.close();
 }
 
-await series('ru-RU', 'ru');
-await series('en-US', 'en');
-console.log('\nготово: dist/store/ru и dist/store/en — загружать в карточку игры');
+const only = process.argv.find((a) => a.startsWith('--layout='));
+const wanted = only ? only.split('=')[1].split(',') : null;
+for (const layout of LAYOUTS) {
+  if (wanted && !wanted.includes(layout.id)) continue;
+  for (const [locale, lang] of LANGS) await series(locale, lang, layout);
+}
+console.log('\nготово: dist/store/shots/<раскладка>/<язык> — загружать в карточку игры');
