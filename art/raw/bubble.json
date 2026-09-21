@@ -1,7 +1,7 @@
 {
   "sheet": "bubble-sheet.jpg",
   "model": "google/gemini-3.1-flash-image-preview",
-  "createdAt": "2026-09-21T09:41:39.644Z",
+  "createdAt": "2026-09-21T09:50:31.592Z",
   "parts": {
     "bubble": {
       "file": "bubblepart-bubble.webp",
@@ -27,7 +27,7 @@
   "bubble-cheer": {
     "file": "bubble-cheer.webp",
     "size": "316x351",
-    "bytes": 16182,
+    "bytes": 15792,
     "cavity": {
       "x": 13,
       "y": 11,
@@ -43,7 +43,7 @@
   "bubble-angry": {
     "file": "bubble-angry.webp",
     "size": "316x351",
-    "bytes": 18508,
+    "bytes": 17738,
     "cavity": {
       "x": 13,
       "y": 11,
@@ -59,7 +59,7 @@
   "bubble-worry": {
     "file": "bubble-worry.webp",
     "size": "316x351",
-    "bytes": 15246,
+    "bytes": 14896,
     "cavity": {
       "x": 13,
       "y": 11,

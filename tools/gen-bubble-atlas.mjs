@@ -45,7 +45,9 @@ const CELL = 320;                 // сторона нарезанной час�
 // Доля радиуса полости, которую занимает ОПИСАННАЯ вокруг реакции окружность.
 // Вписывать по стороне нельзя: полость круглая, и у квадратного знака злости
 // диагональ вылезала за контур, хотя по ширине он помещался.
-const ICON_IN_CAVITY = 0.92;
+// 0.86, а не под самый контур: заливка меряет полость с запасом, прихватывая
+// мягкий край обводки, и без воздуха реакция упиралась бы в неё.
+const ICON_IN_CAVITY = 0.86;
 
 const prompt = `${STYLE_UI}. Exactly ${BUBBLE_PARTS.length} separate objects on one single uniform flat `
   + `cream background, laid out in one row of ${BUBBLE_PARTS.length}. There must be exactly `
