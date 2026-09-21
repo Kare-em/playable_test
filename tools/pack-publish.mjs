@@ -125,7 +125,7 @@ if (stale.length) {
 /* ------------------------------------------------------------------ раскладка */
 const out = 'dist/publish/';
 await rm(at(out), { recursive: true, force: true });
-for (const [src, dst] of [...ITEMS, ...haveVideo]) {
+for (const [src, dst] of ITEMS) {
   await mkdir(new URL(out + dst.slice(0, dst.lastIndexOf('/') + 1), root), { recursive: true });
   await cp(at(src), at(out + dst));
 }
@@ -143,10 +143,6 @@ const README = `Магазин у дома — материалы для пуб�
   screenshots/desktop/     1920x1080, десктоп и телевизор (16:9)
   screenshots/tablet/      1600x1200, планшет (4:3)
                            внутри каждой — ru/ и en/, по пять кадров
-${haveVideo.length ? `
-  video/                   игровое видео, <раскладка>-<язык>, без звука:
-                           дорожку кладут при монтаже
-` : ''}
 
   texts/store-card.md      названия, описания, теги, возрастной рейтинг,
                            переключатели рекламы и облачных сохранений —
@@ -155,7 +151,10 @@ ${haveVideo.length ? `
 
 Размеры даны с запасом: нужный получается уменьшением от большего.
 Точные лимиты площадка показывает в самой форме.
-
+${haveVideo.length ? `
+Игровое видео лежит отдельным архивом yandex-video.zip: в форму его не
+загружают — там дают ссылку, поэтому оно не занимает место здесь.
+` : ''}
 Возрастной рейтинг: 0+. Языки: русский и английский.
 Реклама: полноэкранная между сменами и вознаграждаемое видео на итогах,
 только через SDK площадки. Облачные сохранения включены.
@@ -166,6 +165,24 @@ await writeFile(at(out + 'README.txt'), '﻿' + README);   // BOM — иначе
 const zipPath = 'dist/yandex-publish.zip';
 await rm(at(zipPath), { force: true });
 await run('zip', ['-q', '-r', '../yandex-publish.zip', '.'], { cwd: path(out) });
+
+/* --------------------------------------------------- видео отдельным архивом */
+// В форму черновика видео не загружают — там дают ссылку. Поэтому оно едет
+// своим архивом: материалы для формы остаются лёгкими, а ролики не мешают
+// тому, кто пришёл за сборкой и картинками.
+const videoZip = 'dist/yandex-video.zip';
+await rm(at(videoZip), { force: true });
+if (haveVideo.length) {
+  const vout = 'dist/publish-video/';
+  await rm(at(vout), { recursive: true, force: true });
+  await mkdir(at(vout), { recursive: true });
+  for (const [src, dst] of haveVideo) await cp(at(src), at(vout + dst.replace(/^video\//, '')));
+  await run('zip', ['-q', '-r', '../yandex-video.zip', '.'], { cwd: path(vout) });
+  const v = (await stat(at(videoZip))).size;
+  console.log(`${videoZip}: ${(v / 1024 / 1024).toFixed(2)} МБ, ${haveVideo.length} роликов`);
+} else {
+  console.log('видео нет — node tools/video.mjs');
+}
 
 const listed = (await run('unzip', ['-Z1', path(zipPath)])).stdout.trim().split('\n');
 const bad = listed.filter((n) => /[\sЀ-ӿ]/.test(n));
