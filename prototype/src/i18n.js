@@ -173,9 +173,25 @@
     return String(code || '').toLowerCase().indexOf('ru') === 0 ? 'ru' : 'en';
   }
 
+  /**
+   * Язык, заданный снаружи: ?lang=en в адресе или SHOP_LANG, вшитый сборкой.
+   * Нужен для проверки карточки на двух языках — иначе английский виден
+   * только тому, у кого английский браузер. На площадке ни того, ни другого
+   * не бывает, поэтому боевой путь (язык игрока из SDK) не меняется.
+   */
+  function forced() {
+    try {
+      var m = /[?&]lang=([a-z-]+)/i.exec(String(location.search || ''));
+      if (m) return m[1];
+    } catch (e) {}
+    return window.SHOP_LANG || null;
+  }
+
   function detect() {
-    var code = null;
-    try { code = window.YGames && window.YGames.isPlatform() && window.YGames.lang(); } catch (e) {}
+    var code = forced();
+    if (!code) {
+      try { code = window.YGames && window.YGames.isPlatform() && window.YGames.lang(); } catch (e) {}
+    }
     if (!code) {
       try { code = navigator.language || (navigator.languages || [])[0]; } catch (e) {}
     }

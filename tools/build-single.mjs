@@ -27,6 +27,16 @@ const safe = (js) => js.replace(/\/\/# sourceMappingURL=.*$/m, '').replace(/<\/s
 const build = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15);
 const stamp = (js) => js.replace("var BUILD = 'dev';", "var BUILD = '" + build + "';");
 
+// --lang=en собирает файл, который всегда открывается на английском: язык
+// иначе берётся из браузера, и проверить английскую карточку может только
+// тот, у кого английская система. Отдельным файлом, а не заменой основного:
+// русская сборка нужна одновременно. В том же файле работает и ?lang=en,
+// но двойным кликом адрес с параметром не открыть.
+const langArg = process.argv.find((a) => a.startsWith('--lang='));
+const lang = langArg ? langArg.split('=')[1] : null;
+const force = lang ? `<script>window.SHOP_LANG = ${JSON.stringify(lang)};</script>\n` : '';
+const outName = lang ? `shop-sort-test-${lang}.html` : 'shop-sort-test.html';
+
 const html = `<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -47,7 +57,7 @@ const html = `<!DOCTYPE html>
 </head>
 <body>
 <div id="boot">Загрузка…</div>
-<script>${safe(pixi)}</script>
+${force}<script>${safe(pixi)}</script>
 <script>${safe(audio)}</script>
 <script>${safe(art)}</script>
 <script>${safe(ysdk)}</script>
@@ -58,9 +68,9 @@ const html = `<!DOCTYPE html>
 `;
 
 await mkdir(new URL('dist/', root), { recursive: true });
-await writeFile(new URL('dist/shop-sort-test.html', root), html);
-console.log('сборка', build);
-console.log('dist/shop-sort-test.html:', (Buffer.byteLength(html) / 1024).toFixed(0), 'КБ');
+await writeFile(new URL('dist/' + outName, root), html);
+console.log('сборка', build, lang ? `(язык ${lang} принудительно)` : '');
+console.log(`dist/${outName}:`, (Buffer.byteLength(html) / 1024).toFixed(0), 'КБ');
 
 // Вариант для публикации ссылкой: хост сам оборачивает файл в html/head/body
 const page = `<title>Магазин у дома</title>
@@ -81,5 +91,9 @@ const page = `<title>Магазин у дома</title>
 <script>${safe(i18n)}</script>
 <script>${stamp(safe(game))}</script>
 `;
-await writeFile(new URL('dist/artifact-shop-sort.html', root), page);
-console.log('dist/artifact-shop-sort.html:', (Buffer.byteLength(page) / 1024).toFixed(0), 'КБ');
+// Страницу под ссылку --lang не трогает: она определяет язык сама, и
+// переписывать её тестовой сборкой значило бы менять метку у опубликованной.
+if (!lang) {
+  await writeFile(new URL('dist/artifact-shop-sort.html', root), page);
+  console.log('dist/artifact-shop-sort.html:', (Buffer.byteLength(page) / 1024).toFixed(0), 'КБ');
+}
