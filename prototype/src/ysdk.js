@@ -22,6 +22,21 @@
   var saveTimer = null, savePending = null, lastSave = 0;
   var SAVE_GAP = 10000;            // setData ограничен сотней вызовов за 5 минут
 
+  // В APK (Capacitor, tools/build-android.mjs) SDK Яндекс Игр нет — реклама идёт
+  // через нативный Yandex Mobile Ads (android/.../YandexAdsPlugin.java).
+  // Берём лениво: мост Capacitor может появиться позже этого файла.
+  function nativeAds() {
+    try {
+      var C = window.Capacitor;
+      return (C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.YandexAds) || null;
+    } catch (e) { return null; }
+  }
+  // На Яндекс Играх частоту полноэкранной держит площадка, в мобильном SDK —
+  // никто, поэтому в APK держим её сами: не чаще раза в минуту, считая и от
+  // запуска, и от ревард-ролика (игрок только что смотрел рекламу).
+  var NATIVE_INTERSTITIAL_GAP = 60000;
+  var lastFullscreen = Date.now();
+
   function fire(list, arg) {
     for (var i = 0; i < list.length; i++) {
       try { list[i](arg); } catch (e) {}
@@ -92,6 +107,18 @@
 
   /** Полноэкранная — только в логической паузе (4.4): между сменами. */
   function interstitial(done) {
+    var ads = nativeAds();
+    if (ads) {
+      if (Date.now() - lastFullscreen < NATIVE_INTERSTITIAL_GAP) { done && done(false); return; }
+      pauseAll();
+      var fin = function (shown) {
+        if (shown) lastFullscreen = Date.now();
+        resumeAll();
+        done && done(!!shown);
+      };
+      ads.showInterstitial().then(function (r) { fin(r && r.shown); }, function () { fin(false); });
+      return;
+    }
     if (!ysdk || !ysdk.adv || !ysdk.adv.showFullscreenAdv) { done && done(false); return; }
     var over = false;
     var end = function (shown) {
@@ -112,6 +139,18 @@
 
   /** Вознаграждаемое видео: награду выдаём только по onRewarded. */
   function rewarded(onReward, done) {
+    var ads = nativeAds();
+    if (ads) {
+      pauseAll();
+      var fin = function (paid) {
+        lastFullscreen = Date.now();
+        if (paid) { try { onReward && onReward(); } catch (e) {} }
+        resumeAll();
+        done && done(!!paid);
+      };
+      ads.showRewarded().then(function (r) { fin(r && r.rewarded); }, function () { fin(false); });
+      return;
+    }
     if (!ysdk || !ysdk.adv || !ysdk.adv.showRewardedVideo) { done && done(false); return; }
     var paid = false, over = false;
     var end = function () {
@@ -161,8 +200,11 @@
     saveTimer = setTimeout(flush, wait);
   }
 
+  // Без SDK — null, а не 'ru': в APK isPlatform() истинно ради рекламы, и
+  // i18n.js тогда должен уйти на язык телефона, а не застрять на русском.
   function lang() {
-    try { return (ysdk && ysdk.environment && ysdk.environment.i18n && ysdk.environment.i18n.lang) || 'ru'; }
+    if (!ysdk) return null;
+    try { return (ysdk.environment && ysdk.environment.i18n && ysdk.environment.i18n.lang) || 'ru'; }
     catch (e) { return 'ru'; }
   }
 
@@ -179,6 +221,7 @@
     lang: lang,
     onPause: function (fn) { pauseHandlers.push(fn); },
     onResume: function (fn) { resumeHandlers.push(fn); },
-    isPlatform: function () { return !!ysdk; }
+    // по нему игра решает, рисовать ли кнопки «за рекламу»
+    isPlatform: function () { return !!ysdk || !!nativeAds(); }
   };
 })();

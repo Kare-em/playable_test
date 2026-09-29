@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Магазин у дома</string>
+    <string name="title_activity_main">Магазин у дома</string>
+    <string name="package_name">ru.kareem.shopsort</string>
+    <string name="custom_url_scheme">ru.kareem.shopsort</string>
+</resources>

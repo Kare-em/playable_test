@@ -91,15 +91,19 @@ const s3 = html.match(/https?:\/\/[^"'\s)]*(storage\.yandexcloud|s3\.mds\.yandex
 if (s3) problems.push('1.7: абсолютные ссылки на S3 Яндекса: ' + s3.slice(0, 3).join(', '));
 if (!/^[\x20-\x7e]*$/.test('index.html')) problems.push('1.22: кириллица в имени файла');
 
-await rm(new URL('dist/yandex.zip', root), { force: true });
-await run('zip', ['-q', '-r', '../yandex.zip', 'index.html'], { cwd: new URL('dist/yandex/', root).pathname });
-const zip = await stat(new URL('dist/yandex.zip', root));
-console.log('dist/yandex.zip:', (zip.size / 1024 / 1024).toFixed(2), 'МБ — этот файл грузится в консоль');
+// --no-zip: сборке под Android (tools/build-android.mjs) нужна только страница,
+// а архив и zip/unzip в PATH — это требование консоли Яндекса, не её
+if (!process.argv.includes('--no-zip')) {
+  await rm(new URL('dist/yandex.zip', root), { force: true });
+  await run('zip', ['-q', '-r', '../yandex.zip', 'index.html'], { cwd: new URL('dist/yandex/', root).pathname });
+  const zip = await stat(new URL('dist/yandex.zip', root));
+  console.log('dist/yandex.zip:', (zip.size / 1024 / 1024).toFixed(2), 'МБ — этот файл грузится в консоль');
 
-const listed = (await run('unzip', ['-Z1', new URL('dist/yandex.zip', root).pathname])).stdout.trim().split('\n');
-console.log('в архиве:', listed.join(', '));
-if (listed[0] !== 'index.html') problems.push('1.22: index.html не в корне архива');
-if (listed.some((n) => /[\sЀ-ӿ]/.test(n))) problems.push('1.22: пробелы или кириллица в именах файлов');
+  const listed = (await run('unzip', ['-Z1', new URL('dist/yandex.zip', root).pathname])).stdout.trim().split('\n');
+  console.log('в архиве:', listed.join(', '));
+  if (listed[0] !== 'index.html') problems.push('1.22: index.html не в корне архива');
+  if (listed.some((n) => /[\sЀ-ӿ]/.test(n))) problems.push('1.22: пробелы или кириллица в именах файлов');
+}
 
 if (problems.length) {
   console.log('\nПРОБЛЕМЫ:');
