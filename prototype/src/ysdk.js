@@ -31,6 +31,31 @@
       return (C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.YandexAds) || null;
     } catch (e) { return null; }
   }
+  // Аналитика MyTracker (android/.../MyTrackerPlugin.java) — тоже только в APK.
+  // На Яндекс Играх и в плейтесте её нет, вызовы молча пропадают.
+  function nativeTracker() {
+    try {
+      var C = window.Capacitor;
+      return (C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.MyTracker) || null;
+    } catch (e) { return null; }
+  }
+  // Ответ плагина игре не нужен, но отклонённый промис не должен сыпаться в консоль.
+  function quiet(p) { try { p && p.then && p.then(null, function () {}); } catch (e) {} }
+
+  /** Событие аналитики. params — плоский объект, значения уйдут строками. */
+  function track(name, params) {
+    var t = nativeTracker();
+    if (!t) return;
+    try { quiet(t.trackEvent({ name: name, params: params || {} })); } catch (e) {}
+  }
+
+  /** Достигнутый уровень — у MyTracker для него отдельный отчёт. */
+  function trackLevel(level, params) {
+    var t = nativeTracker();
+    if (!t) return;
+    try { quiet(t.trackLevel({ level: level, params: params || {} })); } catch (e) {}
+  }
+
   // На Яндекс Играх частоту полноэкранной держит площадка, в мобильном SDK —
   // никто, поэтому в APK держим её сами: не чаще раза в минуту, считая и от
   // запуска, и от ревард-ролика (игрок только что смотрел рекламу).
@@ -219,6 +244,8 @@
     load: load,
     flush: flush,
     lang: lang,
+    track: track,
+    trackLevel: trackLevel,
     onPause: function (fn) { pauseHandlers.push(fn); },
     onResume: function (fn) { resumeHandlers.push(fn); },
     // по нему игра решает, рисовать ли кнопки «за рекламу»

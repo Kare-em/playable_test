@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="true"
@@ -38,4 +39,9 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- MyTracker: тип сети в отчётах -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Его приносит Google Play Billing из зависимостей MyTracker. Покупок в игре
+         нет, а для модерации RuStore объявленный биллинг без покупок — лишний вопрос. -->
+    <uses-permission android:name="com.android.vending.BILLING" tools:node="remove" />
 </manifest>

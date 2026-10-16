@@ -276,7 +276,69 @@
     logEvents.push(ev);
     if (logEvents.length > LOG_MAX) logEvents.splice(0, logEvents.length - LOG_MAX);
     saveLog();
+    report(type, ev);
     return ev;
+  }
+
+  /* -------------------------------------------------------------- аналитика
+     Тот же журнал уходит в MyTracker (только в APK: YGames.track в браузере
+     молчит). Отправляем плоские поля события строками — вложенное (up) и
+     служебное (at, ua — модель телефона SDK знает сам) отбрасываем. reason —
+     текст на языке игрока, в отчёте вместо него код why.
+
+     Воронка — отдельные события funnel_NN_*, каждое один раз за установку:
+     так в кабинете шаги складываются в воронку без фильтров по параметрам,
+     а повторные смены и переигровки её не размывают. Номер в имени держит
+     порядок шагов в списке событий. Отметки живут своим ключом, поэтому
+     сброс прогресса и смена сборки (build_reset) воронку не обнуляют. */
+
+  var FUNNEL_KEY = 'shopsort.funnel';
+  var REPORT_SKIP = { at: 1, type: 1, ua: 1, reason: 1 };
+  // Выигранная смена N → шаг воронки. Дальние вехи редкие, чтобы шагов не
+  // стало столько, что воронку не прочитать.
+  var FUNNEL_WON = { 1: '05_shift1_won', 2: '08_shift2_won', 3: '09_shift3_won',
+                     5: '10_shift5_won', 10: '11_shift10_won', 20: '12_shift20_won' };
+  var funnelDone = loadFunnel();
+
+  function loadFunnel() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(FUNNEL_KEY) || '{}');
+      return raw && typeof raw === 'object' ? raw : {};
+    } catch (e) { return {}; }
+  }
+
+  function track(name, params) {
+    try { window.YGames && window.YGames.track && window.YGames.track(name, params); } catch (e) {}
+  }
+
+  function funnel(step) {
+    if (funnelDone[step]) return;
+    funnelDone[step] = Date.now();
+    try { localStorage.setItem(FUNNEL_KEY, JSON.stringify(funnelDone)); } catch (e) {}
+    track('funnel_' + step, { build: BUILD });
+  }
+
+  function report(type, ev) {
+    var params = {};
+    for (var k in ev) {
+      if (!Object.prototype.hasOwnProperty.call(ev, k) || REPORT_SKIP[k]) continue;
+      var v = ev[k];
+      if (v == null || typeof v === 'object') continue;
+      params[k] = String(v);
+    }
+    track(type, params);
+
+    if (type === 'boot') funnel('01_launch');
+    else if (type === 'shift_end') {
+      if (ev.shift === 1) funnel('04_shift1_end');
+      if (ev.status === 'won') {
+        if (FUNNEL_WON[ev.shift]) funnel(FUNNEL_WON[ev.shift]);
+        // смена пройдена = уровень достигнут: отдельный отчёт «Уровни» в кабинете
+        try { window.YGames && window.YGames.trackLevel && window.YGames.trackLevel(ev.shift + 1, { build: BUILD }); } catch (e) {}
+      }
+    }
+    else if (type === 'upgrade') funnel('07_first_upgrade');
+    else if (type === 'ad_reward') funnel('first_ad_reward');   // вне линейной воронки: ролик смотрят не все
   }
 
   function clearLog() { logEvents = []; saveLog(); }
@@ -847,6 +909,7 @@
     if (state.combo > bestCombo) bestCombo = state.combo;
     serveCustomer(c);
     orderPaidFx(gain, mult);
+    funnel('03_first_order');
   }
 
   function tickPatience() {
@@ -983,6 +1046,7 @@
       shiftStat.moves++;
       if (productById(productId).section === zoneId) shiftStat.home++;
     }
+    funnel('02_first_move');
 
     if (!collectFromTray()) cheerNearby(product);   // разбор по позициям или ожидание целого набора
     var sale = resolveSale();
@@ -1050,9 +1114,9 @@
   function checkShiftEnd() {
     if (state.status !== 'playing') return;
     if (state.served >= state.goal) finish('won');
-    else if (state.lost >= state.cfg.lives) finish('lost', T('Слишком много ушедших покупателей'));
-    else if (trayIsFull()) finish('lost', T('Прилавок забит — смена сорвана'));
-    else if (state.belt.length === 0 && state.fridge.length === 0) finish('lost', T('Завоз кончился, план не выполнен'));
+    else if (state.lost >= state.cfg.lives) finish('lost', T('Слишком много ушедших покупателей'), 'impatient');
+    else if (trayIsFull()) finish('lost', T('Прилавок забит — смена сорвана'), 'tray_full');
+    else if (state.belt.length === 0 && state.fridge.length === 0) finish('lost', T('Завоз кончился, план не выполнен'), 'no_stock');
     else checkStuck();
   }
 
@@ -1077,7 +1141,7 @@
 
   function checkStuck() {
     if (state.status !== 'playing') return;
-    if (!placeableNow() && !escapeLeft()) finish('lost', T('Некуда выложить товар — зоны забиты'));
+    if (!placeableNow() && !escapeLeft()) finish('lost', T('Некуда выложить товар — зоны забиты'), 'stuck');
   }
 
   // Любые три одинаковых на прилавке продаются. Бонусы: своя зона и заказ.
@@ -1199,7 +1263,8 @@
 
   /* ---------------------------------------------------------- конец смены */
 
-  function finish(status, reason) {
+  // why — код причины для аналитики: reason переведён на язык игрока
+  function finish(status, reason, why) {
     cancelDrag();
     try { window.YGames && window.YGames.gameplayStop(); } catch (e) {}
     state.status = status;
@@ -1215,7 +1280,7 @@
     meta.streak = streak;
     saveMeta();
     var stat = shiftStat || { started: Date.now(), moves: 0, home: 0, denyFull: 0, denyZone: 0, spoiled: 0, writeOff: 0 };
-    logEvent('shift_end', { shift: state.shiftIdx + 1, status: status, reason: reason || null,
+    logEvent('shift_end', { shift: state.shiftIdx + 1, status: status, reason: reason || null, why: why || null,
       revenue: Math.round(state.revenue), served: state.served, goal: state.goal,
       lost: state.lost, combo: bestCombo, streak: streak, moves: stat.moves, home: stat.home,
       denyFull: stat.denyFull, denyZone: stat.denyZone,
@@ -1242,6 +1307,7 @@
     if (!adAvailable()) return;
     try {
       window.YGames.rewarded(null, function (paid) {
+        logEvent('ad_rewarded', { shift: state.shiftIdx + 1, paid: paid });
         if (paid) onReward();
         else toast(T('Ролик не досмотрен — награда не начислена'));
       });
@@ -1255,7 +1321,12 @@
     var done = false;
     var run = function () { if (done) return; done = true; go(); };
     if (!window.YGames) { run(); return; }
-    try { window.YGames.interstitial(run); } catch (e) { run(); }
+    try {
+      window.YGames.interstitial(function (shown) {
+        if (shown) logEvent('ad_interstitial', { shift: state.shiftIdx + 1 });
+        run();
+      });
+    } catch (e) { run(); }
   }
 
   function nextShift() {
@@ -3437,6 +3508,7 @@
   }
 
   function showShop() {
+    funnel('06_shop');
     overlayKind = 'shop';
     overlay.removeChildren();
     overlay.visible = true;
