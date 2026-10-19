@@ -26,6 +26,7 @@
  * Результат: dist/store/shots/<раскладка>/<язык>/shot-1..5.png
  */
 import { mkdir, rm } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
 const { chromium } = await import('playwright').catch(() =>
   import('/opt/node22/lib/node_modules/playwright/index.mjs'));
@@ -33,7 +34,7 @@ const { chromium } = await import('playwright').catch(() =>
 const SETTLE = 2600;          // столько живут попап заказа и тост списания
 
 export const LAYOUTS = [
-  { id: 'mobile',  w: 720,  h: 1280, note: 'телефон, 9:16' },
+  { id: 'mobile',  w: 720,  h: 1280, note: 'телефон, 9:16', scale: 1.5 },  // 1080×1920: Google Play продвигает игры со скринами от 1080 по каждой стороне
   { id: 'desktop', w: 1920, h: 1080, note: 'десктоп и телевизор, 16:9' },
   { id: 'tablet',  w: 1600, h: 1200, note: 'планшет, 4:3' }
 ];
@@ -45,8 +46,8 @@ async function series(locale, lang, layout) {
   await rm(out, { recursive: true, force: true });
   await mkdir(out, { recursive: true });
 
-  const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: layout.w, height: layout.h }, deviceScaleFactor: 1, locale });
+  const browser = await chromium.launch(process.platform === 'win32' ? { channel: 'msedge' } : {});  // на Windows скачанного Chromium нет — берём системный Edge
+  const page = await browser.newPage({ viewport: { width: layout.w, height: layout.h }, deviceScaleFactor: layout.scale || 1, locale });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(new URL('../dist/yandex/index.html', import.meta.url).href);
@@ -57,7 +58,7 @@ async function series(locale, lang, layout) {
   if (got !== lang) console.log(`  ВНИМАНИЕ: игра выбрала язык ${got}, ожидался ${lang}`);
   const shot = async (n, note) => {
     await page.waitForTimeout(SETTLE);
-    await page.screenshot({ path: new URL('shot-' + n + '.png', out).pathname });
+    await page.screenshot({ path: fileURLToPath(new URL('shot-' + n + '.png', out)) });
     console.log(`  ${dir}/shot-${n}.png — ${note}`);
   };
   // Обычная игра: кладём первый товар с завоза и обслуживаем очередь, чтобы

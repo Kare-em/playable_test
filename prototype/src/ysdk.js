@@ -195,6 +195,14 @@
     setTimeout(end, 90000);
   }
 
+  /** Sticky-баннер (только APK): игра зовёт на экране магазина, GDD §5.
+   *  На Яндекс Играх sticky-баннер включается в консоли площадки, не кодом. */
+  function banner(on) {
+    var ads = nativeAds();
+    if (!ads || !ads.showBanner) return;
+    try { quiet(on ? ads.showBanner() : ads.hideBanner()); } catch (e) {}
+  }
+
   /* ------------------------------------------------------------ сохранения */
 
   /** Облачный прогресс. Локальный localStorage остаётся и работает без сети. */
@@ -240,6 +248,8 @@
     gameplayStop: gameplayStop,
     interstitial: interstitial,
     rewarded: rewarded,
+    showBanner: function () { banner(true); },
+    hideBanner: function () { banner(false); },
     save: save,
     load: load,
     flush: flush,

@@ -26,7 +26,7 @@ const { chromium } = await import('playwright').catch(() =>
 const out = new URL('../dist/store/', import.meta.url);
 await mkdir(out, { recursive: true });
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(process.platform === 'win32' ? { channel: 'msedge' } : {});  // на Windows скачанного Chromium нет — берём системный Edge
 const page = await browser.newPage();
 
 /** Кадрирует по содержимому и рисует на тёплом фоне в заданной рамке. */

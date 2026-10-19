@@ -3507,9 +3507,17 @@
     return g;
   }
 
+  // Баннер живёт ровно пока открыт магазин (GDD §5: «не в геймплее»).
+  // Показ укорачивает WebView → resize → rebuildScene → снова showShop:
+  // поэтому вызов повторяемый, плагин второй раз ничего не делает.
+  function shopBanner(on) {
+    try { window.YGames && window.YGames[on ? 'showBanner' : 'hideBanner'](); } catch (e) {}
+  }
+
   function showShop() {
     funnel('06_shop');
     overlayKind = 'shop';
+    shopBanner(true);
     overlay.removeChildren();
     overlay.visible = true;
 
@@ -3622,6 +3630,7 @@
 
   function showOverlay(status, reason) {
     overlayKind = { status: status, reason: reason };
+    shopBanner(false);
     overlay.removeChildren();
     overlay.visible = true;
 
@@ -3711,7 +3720,7 @@
     }
   }
 
-  function hideOverlay() { overlayKind = null; overlay.visible = false; overlay.removeChildren(); }
+  function hideOverlay() { overlayKind = null; shopBanner(false); overlay.visible = false; overlay.removeChildren(); }
 
   /* ------------------------------------------------------------------ boot */
 
